@@ -77,9 +77,9 @@ sub run {
 	my ($self) = @_;
 	my $anc_mapping_mlssid = $self->param('mapping_mlssid');
 	my $anchor_align_adaptor = $self->compara_dba()->get_adaptor("AnchorAlign");
-	my $dnafrag_ids = $anchor_align_adaptor->fetch_all_dnafrag_ids($anc_mapping_mlssid);
+        my $all_genome_db_ids = $anchor_align_adaptor->fetch_all_genome_db_ids_for_mlssid($anc_mapping_mlssid);
 	my (%Overlappping_anchors, %Anchors_2_remove, %Scores);
-	foreach my $genome_db_id(sort keys %{$dnafrag_ids}) {
+	foreach my $genome_db_id (sort @$all_genome_db_ids) {
 		my %genome_db_dnafrags;
 		foreach my $genome_db_anchors(@{ $anchor_align_adaptor->fetch_all_anchors_by_genome_db_id_and_mlssid(
 						$genome_db_id, $anc_mapping_mlssid) }) {
