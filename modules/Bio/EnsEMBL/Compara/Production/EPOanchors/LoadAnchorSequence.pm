@@ -22,13 +22,8 @@ Populates the anchor_seq table, using the "trimmed" anchors defined in the ancho
 
 package Bio::EnsEMBL::Compara::Production::EPOanchors::LoadAnchorSequence;
 
-
-
 use strict;
 use warnings;
-use Data::Dumper;
-use Bio::EnsEMBL::Hive::Process;
-use Bio::EnsEMBL::Registry;
 
 use base ('Bio::EnsEMBL::Compara::RunnableDB::BaseRunnable');
 
