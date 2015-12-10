@@ -81,6 +81,7 @@ sub default_options {
 	'compara_anchor_db' => 'mysql://ensro@compara3/sf5_TEST_gen_anchors_mammals_cat_100',
 
 	'mapping_exe' => "/software/ensembl/compara/exonerate/exonerate",
+	'mapping_params'    => { bestn=>11, gappedextension=>"no", softmasktarget=>"no", percent=>75, showalignment=>"no", model=>"affine:local", },
 	#'anchors_mlss_id' => 10000, # this should correspond to the mlss_id in the anchor_sequence table of the compara_anchor_db database (from EPO_pt1_conf.pm)
 	'mapping_method_link_id' => 10000, # dummy value - should not need to change
 	'mapping_method_link_name' => 'MAP_ANCHORS', 
@@ -295,6 +296,7 @@ sub pipeline_analyses {
 		-module         => 'Bio::EnsEMBL::Compara::Production::EPOanchors::MapAnchors',
 		-parameters => {
 			'mapping_exe' => $self->o('mapping_exe'),
+	                'mapping_params' => $self->o('mapping_params'),
 		},
 		-hive_capacity => 1000,
 		-max_retry_count => 1,
