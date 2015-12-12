@@ -280,13 +280,24 @@ sub pipeline_analyses {
 	    {	-logic_name     => 'dump_genome_sequence',
 		-module         => 'Bio::EnsEMBL::Compara::Production::EPOanchors::DumpGenomeSequence',
 		-parameters => {
-			'anc_seq_count_cut_off' => $self->o('anc_seq_count_cut_off'),
 			'dont_dump_MT' => $self->o('dont_dump_MT'),
-			'anchor_batch_size' => $self->o('anchor_batch_size'),
-			'fan_branch_code' => 2,
+		},
+		-flow_into => [ 'map_anchors_factory' ],
+		-rc_name => 'mem7500',
+		-hive_capacity => 10,
+	    },
+
+	    {	-logic_name     => 'map_anchors_factory',
+                -module         => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
+		-parameters     => {
+                    'db_conn'       => '#compara_anchor_db#',
+                    'inputquery'    => 'SELECT anchor_id FROM anchor_sequence GROUP BY anchor_id HAVING COUNT(*) <= #anc_seq_count_cut_off# ORDER BY anchor_id',
+                    'contiguous'    => 0,
+                    'step'          => $self->o('anchor_batch_size'),
+                    'anc_seq_count_cut_off' => $self->o('anc_seq_count_cut_off'),
 		},
 		-flow_into => {
-			2 => [ 'map_anchors' ],
+			2 => { 'map_anchors' => { 'anchor_ids' => '#_range_list#', 'genome_db_file' => '#genome_db_file#', 'genome_db_id' => '#genome_db_id#' } },
 		},
 		-rc_name => 'mem7500',
 		-hive_capacity => 10,

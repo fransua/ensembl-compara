@@ -68,11 +68,11 @@ sub fetch_input {
         # FIXME : we only need a DBConnection here, not a Compara DBAdaptor
         my $anchor_dba = Bio::EnsEMBL::Compara::DBSQL::DBAdaptor->go_figure_compara_dba( $self->param('compara_anchor_db') );
 	my $genome_db_file = $self->param_required('genome_db_file');
-	my $sth = $anchor_dba->dbc->prepare("SELECT anchor_id, sequence FROM anchor_sequence WHERE anchor_id BETWEEN  ? AND ?");
-        my $min_anc_id = $self->param('min_anchor_id');
-        my $max_anc_id = $self->param('max_anchor_id');
-	$sth->execute( $min_anc_id, $max_anc_id );
-	my $query_file = $self->worker_temp_directory  . "anchors." . join ("-", $min_anc_id, $max_anc_id );
+        my $anchor_ids = $self->param_required('anchor_ids');
+        my $str_anchor_ids = join(',', @$anchor_ids);
+        my $sth = $anchor_dba->dbc->prepare("SELECT anchor_id, sequence FROM anchor_sequence WHERE anchor_id IN ($str_anchor_ids)");
+        $sth->execute();
+        my $query_file = $self->worker_temp_directory  . "anchors." . join ("-", $anchor_ids->[0], $anchor_ids->[-1] );
 	open F, ">$query_file" || throw("Couldn't open $query_file");
 	foreach my $anc_seq( @{ $sth->fetchall_arrayref } ){
 		print F ">", $anc_seq->[0], "\n", $anc_seq->[1], "\n";
