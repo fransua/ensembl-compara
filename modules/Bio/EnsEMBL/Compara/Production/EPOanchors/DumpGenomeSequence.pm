@@ -65,35 +65,56 @@ use base ('Bio::EnsEMBL::Compara::RunnableDB::BaseRunnable');
 
 
 sub fetch_input {
-	my ($self) = @_;
-	my $seq_dump_loc = $self->param('seq_dump_loc');
-	my $chunk_factor = $self->param('genome_chunk_size');
-	my $seq_width = $self->param('seq_width');
-	$seq_dump_loc = $seq_dump_loc . "/" . $self->param('genome_db_name') . "_" . $self->param('genome_db_assembly');
-	make_path("$seq_dump_loc", {verbose => 1,});
-	my $genome_db_adaptor = $self->compara_dba()->get_adaptor("GenomeDB");
-	my $genome_db = $genome_db_adaptor->fetch_by_dbID( $self->param('genome_db_id') );
-	my $dnafrag_adaptor = $self->compara_dba()->get_adaptor("DnaFrag");
-	my $genome_dump_file = "$seq_dump_loc/genome_seq";
+    my ($self) = @_;
+
+    # Prepare the target directory
+    my $seq_dump_loc = $self->param('seq_dump_loc') . "/" . $self->param('genome_db_name') . "_" . $self->param('genome_db_assembly');
+    make_path("$seq_dump_loc", {verbose => 1,});
+    my $genome_dump_file = "$seq_dump_loc/genome_seq";
     $self->param('genome_dump_file', $genome_dump_file);
-	open(my $filehandle, ">$genome_dump_file") or die "cant open $genome_dump_file\n";
-    my $serializer = Bio::EnsEMBL::Utils::IO::FASTASerializer->new($filehandle,
-		  sub{
-			my $slice = shift;
-			return join(":", $slice->coord_system_name(), $slice->coord_system->version(), 
-					$slice->seq_region_name(), 1, $slice->length, 1); 
-		}); 
-    $serializer->chunk_factor($chunk_factor);
-    $serializer->line_width($seq_width);
+
+    # Get the list of slices to dump using only 1 connection to the core
+    # database
+    my $genome_db_adaptor = $self->compara_dba()->get_adaptor("GenomeDB");
+    my $genome_db = $genome_db_adaptor->fetch_by_dbID( $self->param('genome_db_id') );
+    my $dnafrag_adaptor = $self->compara_dba()->get_adaptor("DnaFrag");
+    my $all_dnafrags = $dnafrag_adaptor->fetch_all_by_GenomeDB_region($genome_db);
+    my @all_slices;
     $genome_db->db_adaptor->dbc->prevent_disconnect( sub {
-            my $all_dnafrags = $dnafrag_adaptor->fetch_all_by_GenomeDB_region($genome_db);
             foreach my $ref_dnafrag( @$all_dnafrags ) {
                 next unless $ref_dnafrag->is_reference;
+                # FIXME: should use isMT
                 next if ($ref_dnafrag->name=~/MT.*/i and $self->param('dont_dump_MT'));
-                $serializer->print_Seq($ref_dnafrag->slice);
+                push @all_slices, $ref_dnafrag->slice;
             }
         });
-	close($filehandle);
+    $self->param('all_slices', \@all_slices);
+}
+
+sub run {
+    my ($self) = @_;
+
+    # Use Core's FASTASerializer to dump the genome sequence
+    my $genome_dump_file = $self->param('genome_dump_file');
+    open(my $filehandle, '>', $genome_dump_file) or die "cant open $genome_dump_file\n";
+    my $serializer = Bio::EnsEMBL::Utils::IO::FASTASerializer->new($filehandle, sub {
+            my $slice = shift;
+            return join(":", $slice->coord_system_name(), $slice->coord_system->version(),
+                $slice->seq_region_name(), 1, $slice->length, 1);
+        });
+    $serializer->chunk_factor($self->param('genome_chunk_size'));
+    $serializer->line_width($self->param('seq_width'));
+
+    # Disconnect from Hive (Compara too ?) and start dumping reusing the
+    # same connection to the core database
+    $self->dbc->disconnect_if_idle();
+    my $all_slices = $self->param('all_slices');
+    $all_slices->[0]->adaptor->dbc->prevent_disconnect( sub {
+            foreach my $slice (@$all_slices) {
+                $serializer->print_Seq($slice);
+            }
+        });
+    close($filehandle);
 }
 
 
