@@ -38,6 +38,9 @@ use warnings;
 
 package Bio::EnsEMBL::Compara::Production::DBSQL::AnchorAlignAdaptor;
 
+use strict;
+use warnings;
+
 use Data::Dumper;
 
 use DBI qw(:sql_types);
@@ -184,9 +187,9 @@ sub fetch_all_by_anchor_id_and_mlss_id {
 
 =head2 update_anchor_status
 
-  Arg[1]     : anchor_id, hashref 
+  Arg[1]     : anchor_id, arrayref
   Arg[2]     : integer: new "anchor_status" value
-  Example    : $anchor_align_adaptor->update_anchor_status($self->input_anchor_id, 3333);
+  Example    : $anchor_align_adaptor->update_anchor_status($array_of_anchor_ids, 3333);
   Description: updates anchor_status field
   Returntype : none
   Exceptions : none
@@ -195,8 +198,8 @@ sub fetch_all_by_anchor_id_and_mlss_id {
 =cut
 
 sub update_anchor_status {
-	my($self, $failed_anchor_hash_ref, $new_status, $mlssid) = @_;
-	unless (defined $failed_anchor_hash_ref ){
+	my($self, $failed_anchor_array_ref, $new_status, $mlssid) = @_;
+	unless (defined $failed_anchor_array_ref){
 		throw( "No failed_anchor_id : update_anchor_status failed");
 	} 
 	unless (defined $mlssid) {
@@ -206,7 +209,7 @@ sub update_anchor_status {
 	my $update = qq{
 		UPDATE anchor_align SET anchor_status = ? WHERE anchor_id = ? AND method_link_species_set_id = ?};
 	my $sth = $self->prepare($update);
-	foreach my $failed_anchor(%{$failed_anchor_hash_ref}) {
+	foreach my $failed_anchor(@{$failed_anchor_array_ref}) {
 		$sth->execute($new_status, $failed_anchor, $mlssid) or die $self->errstr;
 	}
 	return 1;

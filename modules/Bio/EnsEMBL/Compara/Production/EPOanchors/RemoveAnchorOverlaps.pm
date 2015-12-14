@@ -126,7 +126,7 @@ sub run {
 		$flag = 1  if (scalar(keys %Scores));
 	}
 	print STDERR "anchors to remove: ", scalar(keys %Anchors_2_remove), "\n";
-	$self->param('overlapping_ancs_to_remove', \%Anchors_2_remove);
+	$self->param('overlapping_ancs_to_remove', [keys %Anchors_2_remove]);
 	return 1;
 }
 
