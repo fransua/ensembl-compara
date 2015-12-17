@@ -135,7 +135,7 @@ sub write_output {
 	my ($self) = @_;
 	my $anchor_align_adaptor = $self->compara_dba()->get_adaptor("AnchorAlign");
 	my $Anchors_2_remove = $self->param('overlapping_ancs_to_remove'); 
-	$anchor_align_adaptor->update_failed_anchor($Anchors_2_remove, $self->param('overlapping_id'), $self->param('mapping_mlssid'));	
+	$anchor_align_adaptor->update_anchor_status($Anchors_2_remove, $self->param('overlapping_id'), $self->param('mapping_mlssid'));	
 }
 
 1;
