@@ -128,7 +128,6 @@ sub pipeline_wide_parameters {
 		'mapping_method_link_id' => $self->o('mapping_method_link_id'),
         	'mapping_method_link_name' => $self->o('mapping_method_link_name'),
         	'mapping_mlssid' => $self->o('mapping_mlssid'),
-		'trimmed_mapping_mlssid' => $self->o('trimmed_mapping_mlssid'),
 		'seq_dump_loc' => $self->o('seq_dump_loc'),
 		'compara_anchor_db' => $self->o('compara_anchor_db'),
 		'master_db' => $self->o('compara_master'),
@@ -328,8 +327,7 @@ sub pipeline_analyses {
 	    {   -logic_name => 'trim_anchor_align',			
 		-module     => 'Bio::EnsEMBL::Compara::Production::EPOanchors::TrimAnchorAlign',
 		-parameters => {
-				'input_method_link_species_set_id' => '#mapping_mlssid#',
-				'output_method_link_species_set_id' => '#trimmed_mapping_mlssid#',
+				'method_link_species_set_id' => '#mapping_mlssid#',
 			},
                 -flow_into => {
                     -1 => 'trim_anchor_align_himem',
@@ -341,8 +339,7 @@ sub pipeline_analyses {
 	    {   -logic_name => 'trim_anchor_align_himem',
 		-module     => 'Bio::EnsEMBL::Compara::Production::EPOanchors::TrimAnchorAlign',
 		-parameters => {
-				'input_method_link_species_set_id' => '#mapping_mlssid#',
-				'output_method_link_species_set_id' => '#trimmed_mapping_mlssid#',
+				'method_link_species_set_id' => '#mapping_mlssid#',
 			},
 		-hive_capacity => 150,
                 -rc_name => 'mem3500',

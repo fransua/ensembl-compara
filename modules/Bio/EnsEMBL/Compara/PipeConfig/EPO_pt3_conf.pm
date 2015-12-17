@@ -85,7 +85,7 @@ sub default_options {
         # Where the pipeline lives
         'host'  => 'compara2',
 
-  'mapping_mlssid' => 11000, # method_link_species_set_id of the final (2bp) mapped anchors
+  'mapping_mlssid' => 10000, # method_link_species_set_id of the final (2bp) mapped anchors
   #'epo_mlss_id' => 647, # method_link_species_set_id of the ortheus alignments which will be generated
 #  'gerp_ce_mlss_id' => 648,
 #  'gerp_cs_mlss_id' => 50295,

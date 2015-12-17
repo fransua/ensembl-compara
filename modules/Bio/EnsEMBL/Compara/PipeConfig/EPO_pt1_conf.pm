@@ -336,7 +336,7 @@ return [
  -parameters => {
    'sql' => [
 		'INSERT INTO anchor_align (method_link_species_set_id, anchor_id, dnafrag_id, dnafrag_start, dnafrag_end, dnafrag_strand) '.
-		'SELECT method_link_species_set_id, constrained_element_id, dnafrag_id, dnafrag_start, dnafrag_end, dnafrag_strand FROM '. 
+		'SELECT #overlaps_mlssid#, constrained_element_id, dnafrag_id, dnafrag_start, dnafrag_end, dnafrag_strand FROM '. 
 		'constrained_element WHERE (dnafrag_end - dnafrag_start + 1) >= '. $self->o('min_ce_length') .' ORDER BY constrained_element_id',
 	],
   },
@@ -359,8 +359,7 @@ return [
  -logic_name => 'trim_anchor_align',			
  -module     => 'Bio::EnsEMBL::Compara::Production::EPOanchors::TrimAnchorAlign',
  -parameters => {
-    'input_method_link_species_set_id' => '#gerp_ce_mlssid#',
-    'output_method_link_species_set_id' => '#overlaps_mlssid#',
+    'method_link_species_set_id' => '#overlaps_mlssid#',
   },
  -failed_job_tolerance => 10,
  -hive_capacity => 200,
@@ -374,8 +373,7 @@ return [
  -logic_name => 'trim_anchor_align_himem',
  -module     => 'Bio::EnsEMBL::Compara::Production::EPOanchors::TrimAnchorAlign',
  -parameters => {
-    'input_method_link_species_set_id' => '#gerp_ce_mlssid#',
-    'output_method_link_species_set_id' => '#overlaps_mlssid#',
+    'method_link_species_set_id' => '#overlaps_mlssid#',
   },
  -rc_name => 'mem7500',
  -failed_job_tolerance => 10,
