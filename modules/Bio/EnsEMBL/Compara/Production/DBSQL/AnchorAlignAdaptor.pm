@@ -78,8 +78,8 @@ sub store {
   my $query = qq{
   INSERT INTO anchor_align
     (method_link_species_set_id, anchor_id, dnafrag_id, dnafrag_start,
-    dnafrag_end, dnafrag_strand, score, num_of_organisms, num_of_sequences, evalue)
-  VALUES (?,?,?,?,?,?,?,?,?,?)};
+    dnafrag_end, dnafrag_strand, score, num_of_organisms, num_of_sequences, evalue, untrimmed_anchor_align_id)
+  VALUES (?,?,?,?,?,?,?,?,?,?,?)};
 
   my $sth = $self->prepare($query);
   my $insertCount =
@@ -93,6 +93,7 @@ sub store {
         $anchor_align->num_of_organisms,
         $anchor_align->num_of_sequences,
 	$anchor_align->evalue,
+        $anchor_align->untrimmed_anchor_align_id,
         );
   if($insertCount>0) {
     #sucessful insert
@@ -118,8 +119,8 @@ sub store_mapping_hits {
 
 	my $query = qq{
 	INSERT INTO anchor_align (method_link_species_set_id, anchor_id, dnafrag_id, dnafrag_start,	
-	dnafrag_end, dnafrag_strand, score, num_of_organisms, num_of_sequences, evalue, anchor_status)
-	VALUES (?,?,?,?,?,?,?,?,?,?,?)};
+	dnafrag_end, dnafrag_strand, score, num_of_organisms, num_of_sequences, evalue)
+	VALUES (?,?,?,?,?,?,?,?,?,?)};
 
 	my $sth = $self->prepare($query);
 	foreach my $anchor_hits( @$batch_records ) {
@@ -185,32 +186,31 @@ sub fetch_all_by_anchor_id_and_mlss_id {
 }
 
 
-=head2 update_anchor_status
+=head2 flag_as_overlapping
 
   Arg[1]     : anchor_id, arrayref
-  Arg[2]     : integer: new "anchor_status" value
-  Example    : $anchor_align_adaptor->update_anchor_status($array_of_anchor_ids, 3333);
-  Description: updates anchor_status field
+  Example    : $anchor_align_adaptor->flag_as_overlapping($array_of_anchor_ids);
+  Description: set the is_overlapping flag to 1
   Returntype : none
   Exceptions : none
   Caller     : general
 
 =cut
 
-sub update_anchor_status {
-	my($self, $failed_anchor_array_ref, $new_status, $mlssid) = @_;
+sub flag_as_overlapping {
+	my($self, $failed_anchor_array_ref, $mlssid) = @_;
 	unless (defined $failed_anchor_array_ref){
-		throw( "No failed_anchor_id : update_anchor_status failed");
+		throw( "No failed_anchor_id : flag_as_overlapping failed");
 	} 
 	unless (defined $mlssid) {
-		throw("No mlssid : update_anchor_status failed");
+		throw("No mlssid : flag_as_overlapping failed");
 	}
 
 	my $update = qq{
-		UPDATE anchor_align SET anchor_status = ? WHERE anchor_id = ? AND method_link_species_set_id = ?};
+		UPDATE anchor_align SET is_overlapping = 1 WHERE anchor_id = ? AND method_link_species_set_id = ?};
 	my $sth = $self->prepare($update);
 	foreach my $failed_anchor(@{$failed_anchor_array_ref}) {
-		$sth->execute($new_status, $failed_anchor, $mlssid) or die $self->errstr;
+		$sth->execute($failed_anchor, $mlssid) or die $self->errstr;
 	}
 	return 1;
 }
@@ -249,7 +249,7 @@ sub fetch_all_anchors_by_genome_db_id_and_mlssid {
 		SELECT aa.dnafrag_id, aa.anchor_align_id, aa.anchor_id, aa.dnafrag_start, aa.dnafrag_end 
 		FROM anchor_align aa
 		INNER JOIN dnafrag df ON df.dnafrag_id = aa.dnafrag_id 
-		WHERE df.genome_db_id = ? AND aa.method_link_species_set_id = ? AND anchor_status 
+		WHERE df.genome_db_id = ? AND aa.method_link_species_set_id = ? AND untrimmed_anchor_align_id
 		IS NULL ORDER BY dnafrag_start, dnafrag_end};
 	my $sth = $self->prepare($dnafrag_query);
 	$sth->execute($genome_db_id, $mlssid) or die $self->errstr;
@@ -284,7 +284,8 @@ sub _columns {
              aa.score
              aa.num_of_organisms
              aa.num_of_sequences
-             aa.anchor_status
+             aa.is_overlapping
+             aa.untrimmed_anchor_align_id
             );
 }
 
@@ -309,7 +310,8 @@ sub _objs_from_sth {
     $this_anchor_align->score($row_hashref->{'score'});
     $this_anchor_align->num_of_organisms($row_hashref->{'num_of_organisms'});
     $this_anchor_align->num_of_sequences($row_hashref->{'num_of_sequences'});
-    $this_anchor_align->anchor_status($row_hashref->{'anchor_status'});
+    $this_anchor_align->is_overlapping($row_hashref->{'is_overlapping'});
+    $this_anchor_align->untrimmed_anchor_align_id($row_hashref->{'untrimmed_anchor_align_id'});
 
     push @anchor_aligns, $this_anchor_align;
   }

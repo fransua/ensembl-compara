@@ -387,7 +387,7 @@ return [
  -logic_name => 'load_anchor_sequence_factory',
  -module     => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
  -parameters => {
-	'inputquery'  => 'SELECT DISTINCT(anchor_id) AS anchor_id FROM anchor_align WHERE method_link_species_set_id = #overlaps_mlssid',
+	'inputquery'  => 'SELECT DISTINCT(anchor_id) AS anchor_id FROM anchor_align WHERE method_link_species_set_id = #overlaps_mlssid AND untrimmed_anchor_align_id IS NOT NULL',
   },
  -flow_into => {
 	2 => [ 'load_anchor_sequence' ],	
