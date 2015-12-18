@@ -118,9 +118,7 @@ sub default_options {
 	'chunk_size' => 100000000,
 	  # max block size for pecan to align
 	'pecan_block_size' => 1000000,
-	'pecan_mlid' => 10, # dummy value (change if necessary)
 	'pecan_mlssid' => 10, # dummy value
-	'gerp_ce_mlid' => 11, # dummy value 
 	'gerp_ce_mlssid' => 20, # dummy value
 	'gerp_program_version' => "2.1",
 	'gerp_exe_dir' => "/software/ensembl/compara/gerp/GERPv2.1",
@@ -159,9 +157,7 @@ sub pipeline_wide_parameters {
 		'list_of_pairwise_mlss_ids' => $self->o('list_of_pairwise_mlss_ids'), 		
 		'main_core_dbs' => $self->o('main_core_dbs'),
                 'additional_core_db_urls' => $self->o('additional_core_db_urls'),
-        	'pecan_mlid' => $self->o('pecan_mlid'),
 	        'pecan_mlssid' => $self->o('pecan_mlssid'),
-	        'gerp_ce_mlid' => $self->o('gerp_ce_mlid'),
 		'gerp_ce_mlssid' => $self->o('gerp_ce_mlssid'),
         	'overlaps_mlid' => $self->o('overlaps_mlid'),
         	'overlaps_method_link_name' => $self->o('overlaps_method_link_name'),
@@ -208,10 +204,9 @@ return [
       'sql' => [
       # method_link (ml) and method_link_species_set (mlss) entries for the overlaps, pecan and gerp
       'REPLACE INTO method_link (method_link_id, type) VALUES(#overlaps_mlid#, "#overlaps_method_link_name#")',
-      'REPLACE INTO method_link_species_set (method_link_species_set_id, method_link_id, name, species_set_id) VALUES '
-      .'(#overlaps_mlssid#, #overlaps_mlid#, "get_overlaps", #species_set_id#),'
-      .'(#pecan_mlssid#, #pecan_mlid#, "pecan", #species_set_id#),'
-      .'(#gerp_ce_mlssid#, #gerp_ce_mlid#, "gerp", #species_set_id#),',
+      'REPLACE INTO method_link_species_set (method_link_species_set_id, method_link_id, name, species_set_id) VALUES (#overlaps_mlssid#, #overlaps_mlid#, "get_overlaps", #species_set_id#)',
+      'REPLACE INTO method_link_species_set (method_link_species_set_id, method_link_id, name, species_set_id) SELECT (#pecan_mlssid#, method_link_id, "pecan", #species_set_id#) FROM method_link WHERE type = "PECAN"',
+      'REPLACE INTO method_link_species_set (method_link_species_set_id, method_link_id, name, species_set_id) SELECT (#gerp_ce_mlssid#, method_link_id, "gerp", #species_set_id#) FROM method_link WHERE type = "GERP_CONSTRAINED_ELEMENT"',
       ],
  },
  -flow_into => { 
