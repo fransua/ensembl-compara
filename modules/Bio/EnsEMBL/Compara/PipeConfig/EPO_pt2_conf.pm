@@ -86,7 +86,6 @@ sub default_options {
 	'mapping_method_link_id' => 10000, # dummy value - should not need to change
 	'mapping_method_link_name' => 'MAP_ANCHORS', 
 	'mapping_mlssid' => 10000, # dummy value - should not need to change
-	'trimmed_mapping_mlssid' => 11000, # dummy value - should not need to change
 	 # place to dump the genome sequences
 	'seq_dump_loc' => '/data/blastdb/Ensembl/' . 'compara_genomes_test_' . $self->o('ensembl_release'),
 	 # dont dump the MT sequence for mapping
