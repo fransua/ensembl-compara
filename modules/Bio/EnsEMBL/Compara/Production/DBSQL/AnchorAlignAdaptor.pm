@@ -109,7 +109,6 @@ sub store {
 sub store_mapping_hits {
 	my $self = shift;
 	my $batch_records = shift;
-	my $out_put_mlssid = shift;
 	throw() unless($batch_records);
 	
         # FIXME: disconnect_when_inactive(): why do we need a LOCK here ?
@@ -135,7 +134,6 @@ sub store_mapping_hits {
 sub store_exonerate_hits {
         my $self = shift;
         my $batch_records = shift;
-        my $out_put_mlssid = shift;
         throw() unless($batch_records);
     
         my $query = qq{ 
