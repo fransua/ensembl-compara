@@ -214,16 +214,6 @@ sub flag_as_overlapping {
 }
 
 
-# FIXME: should in theory return the genome_dbs of mlss' species_set
-sub fetch_all_genome_db_ids_for_mlssid {
-	my($self, $mlssid) = @_;
-	my $dnafrag_query = qq{
-		SELECT DISTINCT(df.genome_db_id) FROM anchor_align aa
-		INNER JOIN dnafrag df on aa.dnafrag_id = df.dnafrag_id 
-		WHERE aa.method_link_species_set_id = ?};
-        return $self->dbc->db_handle->selectcol_arrayref($dnafrag_query, undef, $mlssid);
-}
-
 =head2 fetch_all_anchors_by_genome_db_id_and_mlssid 
 
   Arg[0]     : genome_db_id, string

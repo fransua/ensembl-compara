@@ -70,12 +70,12 @@ sub run {
 	my ($self) = @_;
 	my $anc_mapping_mlssid = $self->param('mapping_mlssid');
 	my $anchor_align_adaptor = $self->compara_dba()->get_adaptor("AnchorAlign");
-        my $all_genome_db_ids = $anchor_align_adaptor->fetch_all_genome_db_ids_for_mlssid($anc_mapping_mlssid);
+        my $anc_mapping_mlss = $self->compara_dba()->get_MethodLinkSpeciesSetAdaptor->fetch_by_dbID($anc_mapping_mlssid);
 	my (%Overlappping_anchors, %Anchors_2_remove, %Scores);
-	foreach my $genome_db_id (sort @$all_genome_db_ids) {
+        foreach my $genome_db (@{$anc_mapping_mlss->species_set_obj->genome_dbs}) {
 		my %genome_db_dnafrags;
 		foreach my $genome_db_anchors(@{ $anchor_align_adaptor->fetch_all_anchors_by_genome_db_id_and_mlssid(
-						$genome_db_id, $anc_mapping_mlssid) }) {
+						$genome_db->dbID, $anc_mapping_mlssid) }) {
 			push(@{ $genome_db_dnafrags{ $genome_db_anchors->[0] } }, [ @{ $genome_db_anchors }[1..4] ]);	
 		}
 		foreach my $dnafrag_id(sort keys %genome_db_dnafrags) {
