@@ -85,8 +85,7 @@ sub default_options {
         # Where the pipeline lives
         'host'  => 'compara2',
 
-  'mapping_mlssid' => 10000, # method_link_species_set_id of the final (2bp) mapped anchors
-  #'epo_mlss_id' => 647, # method_link_species_set_id of the ortheus alignments which will be generated
+  #'epo_mlss_id' => 647, # method_link_species_set_id of the ortheus alignments which will be generated. it is also used in the anchor_align database for the final (2bp) mapped anchors
 #  'gerp_ce_mlss_id' => 648,
 #  'gerp_cs_mlss_id' => 50295,
   'species_tree_file' => $self->o('ensembl_cvs_root_dir').'/ensembl-compara/scripts/pipeline/species_tree.39mammals.branch_len.nw',
@@ -164,7 +163,6 @@ sub pipeline_wide_parameters {
 		'enredo_mapping_file' => $self->o('enredo_mapping_file'),
 		'compara_master' => $self->o('compara_master'),
 		'compara_mapped_anchor_db' => $self->o('compara_mapped_anchor_db'),
- 		'mapping_mlssid' => $self->o('mapping_mlssid'),
 		'epo_mlss_id' => $self->o('epo_mlss_id'),
 #		'gerp_ce_mlss_id' => $self->o('gerp_ce_mlss_id'),
 #		'gerp_cs_mlss_id' => $self->o('gerp_cs_mlss_id'),
@@ -254,7 +252,7 @@ return
      'input_query'  => q{SELECT aa.anchor_id, gdb.name, df.name, aa.dnafrag_start, aa.dnafrag_end, CASE
   aa.dnafrag_strand WHEN 1 THEN "+" ELSE "-" END, aa.num_of_organisms, aa.score FROM anchor_align aa INNER JOIN
   dnafrag df ON aa.dnafrag_id = df.dnafrag_id INNER JOIN genome_db gdb ON gdb.genome_db_id = df.genome_db_id WHERE
-  aa.method_link_species_set_id = #mapping_mlssid#
+  aa.method_link_species_set_id = #epo_mlss_id#
   ORDER BY gdb.name, df.name, aa.dnafrag_start},
   },
    -flow_into => [ 'run_enredo' ],

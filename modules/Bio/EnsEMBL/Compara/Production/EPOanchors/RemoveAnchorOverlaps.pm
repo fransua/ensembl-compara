@@ -68,7 +68,7 @@ use base ('Bio::EnsEMBL::Compara::RunnableDB::BaseRunnable');
 
 sub run {
 	my ($self) = @_;
-	my $anc_mapping_mlssid = $self->param('mapping_mlssid');
+	my $anc_mapping_mlssid = $self->param('epo_mlss_id');
 	my $anchor_align_adaptor = $self->compara_dba()->get_adaptor("AnchorAlign");
         my $anc_mapping_mlss = $self->compara_dba()->get_MethodLinkSpeciesSetAdaptor->fetch_by_dbID($anc_mapping_mlssid);
 	my (%Overlappping_anchors, %Anchors_2_remove, %Scores);
@@ -127,9 +127,9 @@ sub run {
 sub write_output {
     my ($self) = @_;
     # Reset the flag to 0 for all the anchor_align
-    $self->compara_dba()->dbc->do('UPDATE anchor_align SET is_overlapping = 0 WHERE method_link_species_set_id = ?', undef,  $self->param('mapping_mlssid'));
+    $self->compara_dba()->dbc->do('UPDATE anchor_align SET is_overlapping = 0 WHERE method_link_species_set_id = ?', undef,  $self->param('epo_mlss_id'));
     # And set it to 1 for the ones we've found
-    $self->compara_dba()->get_adaptor('AnchorAlign')->flag_as_overlapping($self->param('overlapping_ancs_to_remove'), $self->param('mapping_mlssid'));
+    $self->compara_dba()->get_adaptor('AnchorAlign')->flag_as_overlapping($self->param('overlapping_ancs_to_remove'), $self->param('epo_mlss_id'));
 }
 
 1;

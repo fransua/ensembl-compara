@@ -144,7 +144,7 @@ sub process_exonerate_hits {
 				my $index = join(":", $anchor_id, $targ_dnafrag_info, $hit_position->[0]);
 				my $number_of_org_hits = keys %{$hit_numbers->{$index}->{anc_orgs}};
 				my $number_of_seq_hits = $hit_numbers->{$index}->{seq_nums};
-				push(@{$records_to_load}, [$self->param('mapping_mlssid'), $anchor_id, $dnafrag_id,
+				push(@{$records_to_load}, [$self->param('epo_mlss_id'), $anchor_id, $dnafrag_id,
 							@{$hit_position}[0..3], $number_of_org_hits, $number_of_seq_hits]);
 			}
 		}

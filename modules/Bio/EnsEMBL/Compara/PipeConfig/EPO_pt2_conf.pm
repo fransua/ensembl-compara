@@ -82,10 +82,6 @@ sub default_options {
 
 	'mapping_exe' => "/software/ensembl/compara/exonerate/exonerate",
 	'mapping_params'    => { bestn=>11, gappedextension=>"no", softmasktarget=>"no", percent=>75, showalignment=>"no", model=>"affine:local", },
-	#'anchors_mlss_id' => 10000, # this should correspond to the mlss_id in the anchor_sequence table of the compara_anchor_db database (from EPO_pt1_conf.pm)
-	'mapping_method_link_id' => 10000, # dummy value - should not need to change
-	'mapping_method_link_name' => 'MAP_ANCHORS', 
-	'mapping_mlssid' => 10000, # dummy value - should not need to change
 	 # place to dump the genome sequences
 	'seq_dump_loc' => '/data/blastdb/Ensembl/' . 'compara_genomes_test_' . $self->o('ensembl_release'),
 	 # dont dump the MT sequence for mapping
@@ -123,10 +119,7 @@ sub pipeline_wide_parameters {
 	return {
 		%{$self->SUPER::pipeline_wide_parameters},
 
-		#'anchors_mlss_id' => $self->o('anchors_mlss_id'),
-		'mapping_method_link_id' => $self->o('mapping_method_link_id'),
-        	'mapping_method_link_name' => $self->o('mapping_method_link_name'),
-        	'mapping_mlssid' => $self->o('mapping_mlssid'),
+                'epo_mlss_id' => $self->o('epo_mlss_id'),
 		'seq_dump_loc' => $self->o('seq_dump_loc'),
 		'compara_anchor_db' => $self->o('compara_anchor_db'),
 		'master_db' => $self->o('compara_master'),
@@ -177,7 +170,6 @@ sub pipeline_analyses {
                 },
                 -flow_into => {
                     '2->A' => { 'load_genomedb' => { 'master_dbID' => '#genome_db_id#', 'locator' => '#locator#' }, },
-                    '1->A' => [ 'populate_compara_tables' ],
                     'A->1' => [ 'create_mlss_ss' ],
                 },
             },
@@ -215,20 +207,10 @@ sub pipeline_analyses {
             {   -logic_name => 'create_mlss_ss',
                 -module     => 'Bio::EnsEMBL::Compara::RunnableDB::GeneTrees::PrepareSpeciesSetsMLSS',
                 -parameters => {
-                    'tree_method_link' => '#mapping_method_link_name#',
+                    'tree_method_link' => 'EPO',
                     'create_homology_mlss'  => 0,
                 },
                 -flow_into => [ 'reuse_anchor_align_factory' ],
-            },
-
-            {   -logic_name => 'populate_compara_tables',
-                -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
-                -parameters => {
-                    'sql' => [
-                        # ml and mlss entries for the overlaps, pecan and gerp
-                        'REPLACE INTO method_link (method_link_id, type) VALUES(#mapping_method_link_id#, "#mapping_method_link_name#")',
-                    ]
-                },
             },
 
             {   -logic_name     => 'reuse_anchor_align_factory',
@@ -247,7 +229,8 @@ sub pipeline_analyses {
                 -module     => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
                 -parameters => {
                     'db_conn'    => '#reuse_db#',
-                    'inputquery' => 'SELECT anchor_align.* FROM anchor_align JOIN dnafrag USING (dnafrag_id) WHERE genome_db_id = #genome_db_id# AND method_link_species_set_id = #mapping_mlssid# AND untrimmed_anchor_align_id IS NULL',
+                    # FIXME the INSERT may fail because method_link_species_set_id is not defined in this database
+                    'inputquery' => 'SELECT anchor_align.* FROM anchor_align JOIN dnafrag USING (dnafrag_id) WHERE genome_db_id = #genome_db_id# AND untrimmed_anchor_align_id IS NULL',
                     'fan_branch_code' => 2,
                 },
                 -flow_into => {
@@ -326,7 +309,7 @@ sub pipeline_analyses {
 	    {   -logic_name => 'trim_anchor_align',			
 		-module     => 'Bio::EnsEMBL::Compara::Production::EPOanchors::TrimAnchorAlign',
 		-parameters => {
-				'method_link_species_set_id' => '#mapping_mlssid#',
+				'method_link_species_set_id' => '#epo_mlss_id#',
 			},
                 -flow_into => {
                     -1 => 'trim_anchor_align_himem',
@@ -338,7 +321,7 @@ sub pipeline_analyses {
 	    {   -logic_name => 'trim_anchor_align_himem',
 		-module     => 'Bio::EnsEMBL::Compara::Production::EPOanchors::TrimAnchorAlign',
 		-parameters => {
-				'method_link_species_set_id' => '#mapping_mlssid#',
+				'method_link_species_set_id' => '#epo_mlss_id#',
 			},
 		-hive_capacity => 150,
                 -rc_name => 'mem3500',
