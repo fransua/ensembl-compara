@@ -319,6 +319,7 @@ return [
  -logic_name    => 'gerp_constrained_element',
  -module => 'Bio::EnsEMBL::Compara::RunnableDB::GenomicAlignBlock::Gerp',
  -parameters    => { 'window_sizes' => '[1,10,100,500]', 'gerp_exe_dir' => $self->o('gerp_exe_dir'), 
+     'constrained_element_method_link_type' => '#overlaps_method_link_name#', 'no_conservation_scores' => 1,
 	'program_version' => $self->o('gerp_program_version'), 'mlss_id' => '#pecan_mlssid#', },
  -hive_capacity => 100,
  -batch_size    => 10,
