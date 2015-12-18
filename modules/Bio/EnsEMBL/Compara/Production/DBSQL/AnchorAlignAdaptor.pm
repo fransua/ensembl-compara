@@ -143,7 +143,7 @@ sub store_exonerate_hits {
 
         my $sth = $self->prepare($query);
         foreach my $row(@$batch_records) {
-                $sth->execute( split(":", $row) );
+                $sth->execute( @$row );
         }    
         $sth->finish;
         return 1;
