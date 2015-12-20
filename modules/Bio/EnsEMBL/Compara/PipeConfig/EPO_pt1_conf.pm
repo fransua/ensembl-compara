@@ -32,7 +32,6 @@ Bio::EnsEMBL::Compara::PipeConfig::EPO_pt1_conf
         'password' - your mysql password
 	'compara_pairwise_db' - I'm assuiming that all of your pairwise alignments are in one compara db
 	'reference_genome_db_id' - the genome_db_id (ie the species) which is in all your pairwise alignments
-	'list_of_pairwise_mlss_ids' - a comma separated string containing all the pairwise method_link_species_set_id(s) you wise to use to generate the anchors
 	'main_core_dbs' - the servers(s) hosting most/all of the core (species) dbs
 	'core_db_urls' - any additional core dbs (not in 'main_core_dbs')
         The dummy values - you should not need to change these unless they clash with pre-existing values associated with the pairwise alignments you are going to use
@@ -111,7 +110,6 @@ sub default_options {
 
 	  # genome_db_id from which pairwise alignments will be used
 	'reference_genome_db_id' => 142,
-	'list_of_pairwise_mlss_ids' => "634,635,636",
 	  # location of species core dbs which were used in the pairwise alignments
 	'core_db_urls' => [ 'mysql://ensro@ens-livemirror:3306/72' ],
 	  # alignment chunk size
@@ -149,7 +147,6 @@ sub pipeline_wide_parameters {
 
 		'compara_pairwise_db' => $self->o('compara_pairwise_db'),
                 'mlss_id'        => $self->o('mlss_id'),
-		'list_of_pairwise_mlss_ids' => $self->o('list_of_pairwise_mlss_ids'), 		
 		'main_core_dbs' => $self->o('main_core_dbs'),
                 'additional_core_db_urls' => $self->o('additional_core_db_urls'),
 		'min_anchor_size' => $self->o('min_anchor_size'),
