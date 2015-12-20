@@ -66,7 +66,8 @@ package Bio::EnsEMBL::Compara::PipeConfig::EPO_pt3_conf;
 use strict;
 use warnings;
 
-use Bio::EnsEMBL::Hive::Version 2.3;
+use Bio::EnsEMBL::Hive::Version 2.4;
+use Bio::EnsEMBL::Hive::PipeConfig::HiveGeneric_conf;           # Allow this particular config to use conditional dataflow
 
 use base ('Bio::EnsEMBL::Compara::PipeConfig::ComparaGeneric_conf');
 
@@ -88,6 +89,9 @@ sub default_options {
   #'epo_mlss_id' => 647, # method_link_species_set_id of the ortheus alignments which will be generated. it is also used in the anchor_align database for the final (2bp) mapped anchors
 #  'gerp_ce_mlss_id' => 648,
 #  'gerp_cs_mlss_id' => 50295,
+
+  'run_gerp' => 0,
+
   'species_tree_file' => $self->o('ensembl_cvs_root_dir').'/ensembl-compara/scripts/pipeline/species_tree.39mammals.branch_len.nw',
 
 
@@ -167,6 +171,7 @@ sub pipeline_wide_parameters {
 #		'gerp_ce_mlss_id' => $self->o('gerp_ce_mlss_id'),
 #		'gerp_cs_mlss_id' => $self->o('gerp_cs_mlss_id'),
 		'enredo_output_file' => $self->o('enredo_output_file'),
+                'run_gerp' => $self->o('run_gerp'),
 	};
 }
 
@@ -400,41 +405,41 @@ return
         -rc_name => 'hugemem',
 	-max_retry_count => 1,
 	-failed_job_tolerance => 1,
-#        -flow_into => { 
-#		1 => [ 'gerp' ],
-#        },  
+        -flow_into => {
+                1 => WHEN( '#run_gerp#' => [ 'gerp' ] ),
+        },
 },
 # ------------------------------------- run gerp - this will populate the constrained_element and conservation_scores tables
-#{
-#	-logic_name => 'gerp',
-#        -module     => 'Bio::EnsEMBL::Compara::RunnableDB::GenomicAlignBlock::Gerp',
-#        -parameters => {
-#            'mlss_id' => $self->o('epo_mlss_id'), 
-#            'program_version' => $self->o('gerp_version'),
-#            'window_sizes' => $self->o('gerp_window_sizes'),
-#            'gerp_exe_dir' => $self->o('gerp_exe_dir'),
-#	    'do_transactions' => 0,
-#        },
-#	-max_retry_count => 3,
-#        -hive_capacity   => 50,
-#	-failed_job_tolerance => 1,
-#        -flow_into => { 
-#                -1 => [ 'gerp_high_mem' ],
-#        },
-#},
-#{
-#	-logic_name => 'gerp_high_mem',
-#        -module     => 'Bio::EnsEMBL::Compara::RunnableDB::GenomicAlignBlock::Gerp',
-#        -parameters => {
-#            'mlss_id' => $self->o('epo_mlss_id'), 
-#            'program_version' => $self->o('gerp_version'),
-#            'window_sizes' => $self->o('gerp_window_sizes'),
-#            'gerp_exe_dir' => $self->o('gerp_exe_dir'),
-#        },
-#        -hive_capacity   => 10,
-#	-rc_name => 'mem7500',
-#	-failed_job_tolerance => 100,
-#},
+{
+        -logic_name => 'gerp',
+        -module     => 'Bio::EnsEMBL::Compara::RunnableDB::GenomicAlignBlock::Gerp',
+        -parameters => {
+            'mlss_id' => $self->o('epo_mlss_id'),
+            'program_version' => $self->o('gerp_version'),
+            'window_sizes' => $self->o('gerp_window_sizes'),
+            'gerp_exe_dir' => $self->o('gerp_exe_dir'),
+            'do_transactions' => 0,
+        },
+        -max_retry_count => 3,
+        -hive_capacity   => 50,
+        -failed_job_tolerance => 1,
+        -flow_into => {
+                -1 => [ 'gerp_high_mem' ],
+        },
+},
+{
+        -logic_name => 'gerp_high_mem',
+        -module     => 'Bio::EnsEMBL::Compara::RunnableDB::GenomicAlignBlock::Gerp',
+        -parameters => {
+            'mlss_id' => $self->o('epo_mlss_id'),
+            'program_version' => $self->o('gerp_version'),
+            'window_sizes' => $self->o('gerp_window_sizes'),
+            'gerp_exe_dir' => $self->o('gerp_exe_dir'),
+        },
+        -hive_capacity   => 10,
+        -rc_name => 'mem7500',
+        -failed_job_tolerance => 100,
+},
 # ---------------------------------------------------[Update the max_align data in meta]--------------------------------------------------
             {  -logic_name => 'update_max_alignment_length',
                -module     => 'Bio::EnsEMBL::Compara::RunnableDB::GenomicAlignBlock::UpdateMaxAlignmentLength',
@@ -471,21 +476,19 @@ return
                 -module     => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
                 -meadow_type=> 'LOCAL',
                 -flow_into => {
-                     1 => [ 'stats_factory' ],
-                },
-#                               '2->A' => {
-#                                     'conservation_score_healthcheck'  => [
-#                                                                           {'test' => 'conservation_jobs', 'logic_name'=>'gerp','method_link_type'=>'EPO_LOW_COVERAGE'}, 
-#                                                                           {'test' => 'conservation_scores','method_link_species_set_id'=>$self->o('gerp_cs_mlss_id')},
-#                                                                ],  
-#                                    },  
-#                               'A->1' => ['stats_factory'],
-#                              },  
-            },  
+                               '2->A' => WHEN( '#run_gerp#' => {
+                                     'conservation_score_healthcheck'  => [
+                                                                           {'test' => 'conservation_jobs', 'logic_name'=>'gerp','method_link_type'=>'EPO_LOW_COVERAGE'},
+                                                                           {'test' => 'conservation_scores','method_link_species_set_id'=>$self->o('gerp_cs_mlss_id')},
+                                                                ],
+                                    } ),
+                               'A->1' => ['stats_factory'],
+                              },
+            },
 
-#            {   -logic_name => 'conservation_score_healthcheck',
-#                -module     => 'Bio::EnsEMBL::Compara::RunnableDB::HealthCheck',
-#            },
+            {   -logic_name => 'conservation_score_healthcheck',
+                -module     => 'Bio::EnsEMBL::Compara::RunnableDB::HealthCheck',
+            },
 
             {   -logic_name => 'stats_factory',
                 -module     => 'Bio::EnsEMBL::Compara::RunnableDB::GenomeDBFactory',
