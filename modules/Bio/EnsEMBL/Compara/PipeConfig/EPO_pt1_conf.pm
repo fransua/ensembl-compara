@@ -293,7 +293,7 @@ return [
  -logic_name => 'trim_anchor_align_factory',
  -module     => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
  -parameters => {
-    'inputquery'      => "SELECT DISTINCT(anchor_id) AS anchor_id FROM anchor_align",
+    'inputquery'      => "SELECT DISTINCT(anchor_id) AS anchor_id FROM anchor_align WHERE method_link_species_set_id = #mlss_id# AND untrimmed_anchor_align_id IS NULL",
  },  
  -flow_into => {
     '2->A' => [ 'trim_anchor_align' ],
