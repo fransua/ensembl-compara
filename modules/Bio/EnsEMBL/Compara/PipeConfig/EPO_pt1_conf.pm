@@ -227,7 +227,7 @@ return [
  -logic_name => 'set_genome_db_locator_factory',
  -module     => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
  -parameters => {
-   'inputquery' => 'SELECT name AS species_loc_name FROM genome_db WHERE assembly_default',
+   'inputquery' => 'SELECT genome_db_id, name FROM genome_db WHERE assembly_default',
   },
  -flow_into => { 2 => 'update_genome_db_locator', 1 => 'make_species_tree', },
 },
