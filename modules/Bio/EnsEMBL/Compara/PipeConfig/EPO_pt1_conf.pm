@@ -118,13 +118,8 @@ sub default_options {
 	'chunk_size' => 100000000,
 	  # max block size for pecan to align
 	'pecan_block_size' => 1000000,
-	'pecan_mlssid' => 10, # dummy value
 	'gerp_program_version' => "2.1",
 	'gerp_exe_dir' => "/software/ensembl/compara/gerp/GERPv2.1",
-	'species_set_id' => 10000, # dummy value for reference and non-reference species
-	'overlaps_mlid' => 10000, # dummy value 
-	'overlaps_method_link_name' => 'GEN_ANCS',
-	'overlaps_mlssid' => 10000, # dummy value
 	'max_frag_diff' => 1.5, # max difference in sizes between non-reference dnafrag and reference to generate the overlaps from
 	'min_ce_length' => 40, # min length of each sequence in the constrained elenent 
         'min_anchor_size' => 50, # at least one of the sequences in an anchor must be of this size
@@ -153,13 +148,10 @@ sub pipeline_wide_parameters {
 		%{$self->SUPER::pipeline_wide_parameters},
 
 		'compara_pairwise_db' => $self->o('compara_pairwise_db'),
+                'mlss_id'        => $self->o('mlss_id'),
 		'list_of_pairwise_mlss_ids' => $self->o('list_of_pairwise_mlss_ids'), 		
 		'main_core_dbs' => $self->o('main_core_dbs'),
                 'additional_core_db_urls' => $self->o('additional_core_db_urls'),
-	        'pecan_mlssid' => $self->o('pecan_mlssid'),
-        	'overlaps_mlid' => $self->o('overlaps_mlid'),
-        	'overlaps_method_link_name' => $self->o('overlaps_method_link_name'),
-		'overlaps_mlssid' => $self->o('overlaps_mlssid'),
 		'min_anchor_size' => $self->o('min_anchor_size'),
 		'min_number_of_seqs_per_anchor' => $self->o('min_number_of_seqs_per_anchor'),
 		'max_number_of_seqs_per_anchor' => $self->o('max_number_of_seqs_per_anchor'),
@@ -176,61 +168,31 @@ sub pipeline_analyses {
 
 return [
 # ------------------------------------- set up the necessary database tables
-    @{$self->init_basic_tables_analyses('#compara_pairwise_db#', 'delete_from_copied_tables', 1, 0, 1, [{}])},
 
-    # FIXME: assembly_default does not exist any more
-{
-  -logic_name => 'delete_from_copied_tables',
-  -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
-  -parameters => {
-   'sql' => [
-    'DELETE FROM method_link_species_set WHERE method_link_species_set_id NOT IN (#list_of_pairwise_mlss_ids#)',
-    'DELETE sh.* FROM species_set_header sh LEFT OUTER JOIN method_link_species_set mlss ON sh.species_set_id = mlss.species_set_id WHERE mlss.species_set_id IS NULL',
-    'DELETE ss.* FROM species_set ss LEFT OUTER JOIN method_link_species_set mlss ON ss.species_set_id = mlss.species_set_id WHERE mlss.species_set_id IS NULL',
-    'DELETE df.*, gdb.* FROM dnafrag df INNER JOIN genome_db gdb ON gdb.genome_db_id = df.genome_db_id LEFT OUTER JOIN species_set ss ON gdb.genome_db_id = ss.genome_db_id WHERE ss.genome_db_id IS NULL',
-   'DELETE FROM genome_db WHERE ! assembly_default',
-   ],
-  },
- -flow_into => { 1 => [ 'add_dummy_mlss_info' ] },
-},
+    {
+        -logic_name => 'populate_new_database',
+        -module     => 'Bio::EnsEMBL::Compara::RunnableDB::GenomicAlignBlock::PopulateNewDatabase',
+        -parameters => {
+            'program'        => $self->o('populate_new_database_exe'),
+            'pipeline_db'    => $self->pipeline_url(),
+            #'reg_conf'       => $self->o('reg_conf'),
+            'master_db'      => $self->o('master_db'),
+        },
+        -flow_into => [ 'set_genome_db_locator_factory' ],
+    },
 
-{ # this sets values in the method_link_species_set and species_set tables
-  -logic_name     => 'add_dummy_mlss_info',
-  -module         => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
-  -parameters => {
-      'species_set_id'  => $self->o('species_set_id'),
-      'sql' => [
-      # method_link (ml) and method_link_species_set (mlss) entries for the overlaps, pecan and gerp
-      'REPLACE INTO method_link (method_link_id, type) VALUES(#overlaps_mlid#, "#overlaps_method_link_name#")',
-      'REPLACE INTO method_link_species_set (method_link_species_set_id, method_link_id, name, species_set_id) VALUES (#overlaps_mlssid#, #overlaps_mlid#, "get_overlaps", #species_set_id#)',
-      'REPLACE INTO method_link_species_set (method_link_species_set_id, method_link_id, name, species_set_id) SELECT (#pecan_mlssid#, method_link_id, "pecan", #species_set_id#) FROM method_link WHERE type = "PECAN"',
-      ],
- },
- -flow_into => { 
-   '1->A' => [ 'add_dummy_species_set_info_factory', 'set_genome_db_locator_factory' ],
-   'A->1' => [ 'chunk_reference_dnafrags_factory' ],
- },
-},
-
-{ # this sets dummy values into the species_set table
-    # FIXME : direct writes into species_set are forbidden !
- -logic_name     => 'add_dummy_species_set_info_factory',
- -module         => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
- -parameters => {
-  'inputquery' => 'SELECT genome_db_id FROM genome_db',
-  'species_set_id' => $self->o('species_set_id'), 
- },
- -flow_into => { 2 => { 'mysql:////species_set' => { 'species_set_id' => '#species_set_id#', 'genome_db_id' => '#genome_db_id#' } } }, 
-},
-
-{
- -logic_name => 'set_genome_db_locator_factory',
- -module     => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
- -parameters => {
-   'inputquery' => 'SELECT genome_db_id, name FROM genome_db WHERE assembly_default',
-  },
- -flow_into => { 2 => 'update_genome_db_locator', 1 => 'make_species_tree', },
-},
+    {
+        -logic_name => 'set_genome_db_locator_factory',
+        -module     => 'Bio::EnsEMBL::Compara::RunnableDB::GenomeDBFactory',
+        -parameters => {
+            'extra_parameters'  =>  [ 'name' ],
+        },
+        -flow_into  => {
+            '2->A' => [ 'update_genome_db_locator' ],
+            '1->A' => [ 'make_species_tree' ],
+            'A->1' => [ 'chunk_reference_dnafrags_factory' ],
+        }
+    },
 
 { # this sets up the locator field in the genome_db table
  -logic_name => 'update_genome_db_locator',
@@ -242,13 +204,9 @@ return [
  -logic_name    => 'make_species_tree',
  -module        => 'Bio::EnsEMBL::Compara::RunnableDB::MakeSpeciesTree',
  -parameters    => {
-   'mlss_id' => '#pecan_mlssid#',
    'newick_format' => 'simple',
    'blength_tree_file' => $self->o('species_tree_file'),    
  },
- # -flow_into => {
- #   4 => { 'mysql:////method_link_species_set_tag' => { 'method_link_species_set_id' => '#mlss_id#', 'tag' => 'species_tree', 'value' => '#species_tree_string#' } },
- # },
 },
 
 # ------------------------------------- now for the modules which create the anchors
@@ -281,7 +239,6 @@ return [
  -logic_name    => 'pecan',
  -module        => 'Bio::EnsEMBL::Compara::RunnableDB::MercatorPecan::Pecan',
  -parameters    => { 
-  'mlss_id' => '#pecan_mlssid#',
   'max_block_size' => $self->o('pecan_block_size'),
   'java_options' => '-server -Xmx1000M',
    },
@@ -298,7 +255,6 @@ return [
 {    
  -logic_name => 'pecan_high_mem',
  -parameters => {
-   'mlss_id' => '#pecan_mlssid#',
    'max_block_size' => $self->o('pecan_block_size'),
    java_options => '-server -Xmx6000M',
  },  
@@ -316,8 +272,8 @@ return [
  -logic_name    => 'gerp_constrained_element',
  -module => 'Bio::EnsEMBL::Compara::RunnableDB::GenomicAlignBlock::Gerp',
  -parameters    => { 'window_sizes' => '[1,10,100,500]', 'gerp_exe_dir' => $self->o('gerp_exe_dir'), 
-     'constrained_element_method_link_type' => '#overlaps_method_link_name#', 'no_conservation_scores' => 1,
-	'program_version' => $self->o('gerp_program_version'), 'mlss_id' => '#pecan_mlssid#', },
+     'constrained_element_method_link_type' => 'EPO_ANCHORS', 'no_conservation_scores' => 1,
+	'program_version' => $self->o('gerp_program_version'), },
  -hive_capacity => 100,
  -batch_size    => 10,
  -failed_job_tolerance => 10,
@@ -329,7 +285,7 @@ return [
  -parameters => {
    'sql' => [
 		'INSERT INTO anchor_align (method_link_species_set_id, anchor_id, dnafrag_id, dnafrag_start, dnafrag_end, dnafrag_strand) '.
-		'SELECT #overlaps_mlssid#, constrained_element_id, dnafrag_id, dnafrag_start, dnafrag_end, dnafrag_strand FROM '. 
+		'SELECT method_link_species_set_id, constrained_element_id, dnafrag_id, dnafrag_start, dnafrag_end, dnafrag_strand FROM '. 
 		'constrained_element WHERE (dnafrag_end - dnafrag_start + 1) >= '. $self->o('min_ce_length') .' ORDER BY constrained_element_id',
 	],
   },
@@ -352,7 +308,7 @@ return [
  -logic_name => 'trim_anchor_align',			
  -module     => 'Bio::EnsEMBL::Compara::Production::EPOanchors::TrimAnchorAlign',
  -parameters => {
-    'method_link_species_set_id' => '#overlaps_mlssid#',
+    'method_link_species_set_id' => '#mlss_id#',
   },
  -failed_job_tolerance => 10,
  -hive_capacity => 200,
@@ -366,7 +322,7 @@ return [
  -logic_name => 'trim_anchor_align_himem',
  -module     => 'Bio::EnsEMBL::Compara::Production::EPOanchors::TrimAnchorAlign',
  -parameters => {
-    'method_link_species_set_id' => '#overlaps_mlssid#',
+    'method_link_species_set_id' => '#mlss_id#',
   },
  -rc_name => 'mem7500',
  -failed_job_tolerance => 10,
@@ -378,7 +334,7 @@ return [
  -logic_name => 'load_anchor_sequence_factory',
  -module     => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
  -parameters => {
-	'inputquery'  => 'SELECT DISTINCT(anchor_id) AS anchor_id FROM anchor_align WHERE method_link_species_set_id = #overlaps_mlssid AND untrimmed_anchor_align_id IS NOT NULL',
+	'inputquery'  => 'SELECT DISTINCT(anchor_id) AS anchor_id FROM anchor_align WHERE method_link_species_set_id = #mlss_id# AND untrimmed_anchor_align_id IS NOT NULL',
   },
  -flow_into => {
 	2 => [ 'load_anchor_sequence' ],	
@@ -389,7 +345,7 @@ return [
  -logic_name => 'load_anchor_sequence',
  -module     => 'Bio::EnsEMBL::Compara::Production::EPOanchors::LoadAnchorSequence',
  -parameters => {
-    'input_method_link_species_set_id' => '#overlaps_mlssid#',
+    'input_method_link_species_set_id' => '#mlss_id#',
     'max_anchor_seq_len' => $self->o('max_anchor_seq_len'),
     'min_anchor_seq_len' => $self->o('min_ce_length'),
  },
