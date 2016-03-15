@@ -371,7 +371,7 @@ return
 	-hive_capacity => 50,
 	-max_retry_count => 3,
 	-flow_into => {
-#		1 => [ 'gerp' ],
+                1 => WHEN( '#run_gerp#' => [ 'gerp' ] ),
 		-1 => [ 'ortheus_high_mem' ],
 	},
 },
@@ -389,7 +389,7 @@ return
 	-max_retry_count => 2,
 	-failed_job_tolerance => 1,
 	-flow_into => { 
-#		1 => [ 'gerp' ], 
+                1 => WHEN( '#run_gerp#' => [ 'gerp' ] ),
 		-1 => [ 'ortheus_huge_mem' ],
 	},
 },
