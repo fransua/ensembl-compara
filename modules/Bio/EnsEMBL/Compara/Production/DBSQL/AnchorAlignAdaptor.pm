@@ -48,6 +48,7 @@ use DBI qw(:sql_types);
 use Bio::EnsEMBL::Compara::Production::EPOanchors::AnchorAlign;
 
 use Bio::EnsEMBL::Utils::Exception qw(throw);
+use Bio::EnsEMBL::Utils::Scalar qw(assert_ref);
 
 use base qw(Bio::EnsEMBL::Compara::DBSQL::BaseAdaptor);
 
@@ -72,8 +73,7 @@ use base qw(Bio::EnsEMBL::Compara::DBSQL::BaseAdaptor);
 sub store {
   my ($self, $anchor_align)  = @_;
 
-  throw() unless($anchor_align);
-  throw() unless(UNIVERSAL::isa($anchor_align, 'Bio::EnsEMBL::Compara::Production::EPOanchors::AnchorAlign'));
+  assert_ref($anchor_align, 'Bio::EnsEMBL::Compara::Production::EPOanchors::AnchorAlign', 'anchor_align');
 
   my $query = qq{
   INSERT INTO anchor_align

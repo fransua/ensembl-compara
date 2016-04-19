@@ -1082,11 +1082,8 @@ sub _load_GenomicAligns {
   Arg [1]    : int genomic_align_block_id
   Description: Creates a fake assembly for each 2X genome by stitching
                together the LASTZ_NET alignments found on this synteny_region
-               between the reference species and each 2X genome. The list of
-               the pairwise database locations and  
-               Bio::EnsEMBL::Compara::MethodLinkSpeciesSet ids are obtained
-               from $self->param(). Creates a listref of genomic_align
-               fragments
+               between the reference species and each 2X genome.
+               Creates a listref of genomic_align fragments.
   Returntype : 
   Exception  : 
   Warning    :
@@ -1304,7 +1301,7 @@ sub _construct_pairwise_locations {
     my $pairwise_location;
 
     #list of mlss to be found in the default location (usually previous compara database)
-    my @mlsss = eval($self->param('pairwise_default_mlss'));
+    my @mlsss = @{ $self->param('pairwise_default_mlss') };
 
     #Add exceptions
     $pairwise_location = $self->param('pairwise_exception_location');
