@@ -65,12 +65,13 @@ sub store {
   my ($self,$chunkSet) = @_;
 
   assert_ref($chunkSet, 'Bio::EnsEMBL::Compara::Production::DnaFragChunkSet', 'chunkSet');
+
   my $description = $chunkSet->description or undef;
 
   my $insertCount=0;
 
   my $sth = $self->prepare("INSERT ignore INTO dnafrag_chunk_set (dna_collection_id, description) VALUES (?,?)");
-  $insertCount = $sth->execute($chunkSet->dna_collection->dbID, $description);
+  $insertCount = $sth->execute($chunkSet->dna_collection_id || $chunkSet->dna_collection->dbID, $description);
   $sth->finish;
 
   if($insertCount>0) {
@@ -101,9 +102,7 @@ sub store {
 sub fetch_all_by_DnaCollection {
     my ($self, $dna_collection) = @_;
     
-    unless (defined $dna_collection) {
-        $self->throw("fetch_by_dna_collection must have a dna_collection");
-    }
+    assert_ref($dna_collection, 'Bio::EnsEMBL::Compara::Production::DnaCollection');
     my $dna_collection_id = $dna_collection->dbID;
 
     $self->bind_param_generic_fetch($dna_collection_id, SQL_INTEGER);
@@ -139,11 +138,11 @@ sub _objs_from_sth {
 
   while( my $row_hashref = $sth->fetchrow_hashref()) {
 
-    my $chunkSet = Bio::EnsEMBL::Compara::Production::DnaFragChunkSet->new(
-                       -adaptor             => $self,
-                       -dbid                => $row_hashref->{'dnafrag_chunk_set_id'},
-                       -dna_collection_id   => $row_hashref->{'dna_collection_id'},
-    );
+    my $chunkSet = Bio::EnsEMBL::Compara::Production::DnaFragChunkSet->new_fast({
+        'adaptor'               => $self,
+        'dbID'                  => $row_hashref->{'dnafrag_chunk_set_id'},
+        '_dna_collection_id'    => $row_hashref->{'dna_collection_id'},
+    });
 
     push @sets, $chunkSet;
 

@@ -85,7 +85,7 @@ sub fetch_input {
   } else{
       if (defined $self->param('method_link_type') && $self->param('genome_db_ids')) {
 	  die ("No method_link_species_set") if (!$mlss_adaptor);
-	  $mlss = $mlss_adaptor->fetch_by_method_link_type_genome_db_ids($self->param('method_link_type'), eval($self->param('genome_db_ids')));
+	  $mlss = $mlss_adaptor->fetch_by_method_link_type_genome_db_ids($self->param('method_link_type'), $self->param('genome_db_ids'));
 	  $self->param('mlss_id', $mlss->dbID);
       } else {
 	  die("must define either mlss_id or method_link_type and genome_db_ids");
@@ -183,15 +183,13 @@ sub write_output {
   my $output_hash = {};
   foreach my $dnafrag (@$ref_dnafrags) {
       %$output_hash = ('mlss_id' => $mlss_id,
-                       'seq_region' => $dnafrag->name,
-                      'species' => $ref_genome_db->name);
+                       'dnafrag_id' => $dnafrag->dbID);
       $self->dataflow_output_id($output_hash,2);
   }
 
   foreach my $dnafrag (@$non_ref_dnafrags) {
       %$output_hash = ('mlss_id' => $mlss_id,
-                       'seq_region' => $dnafrag->name,
-                       'species' => $non_ref_genome_db->name);
+                       'dnafrag_id' => $dnafrag->dbID);
       $self->dataflow_output_id($output_hash,2);
   }
 
@@ -210,7 +208,7 @@ sub dump_bed_file {
     #Need assembly
     my $genome_db = $self->compara_dba->get_GenomeDBAdaptor->fetch_by_registry_name($species);
     my $assembly = $genome_db->assembly;
-    my $name = $genome_db->name; #get production_name
+    my $name = $genome_db->_get_unique_name; #get production_name
     
     #Check if file already exists
     my $genome_bed_file = $self->param('bed_dir') ."/" . $name . "." . $assembly . "." . "genome.bed";
@@ -309,7 +307,7 @@ sub store_mlss_tag_block_size {
 #
 sub calc_stats {
     my ($self, $dbc_url, $genome_db, $genome_bed) = @_;
-    my $species = $genome_db->name;
+    my $species = $genome_db->_get_unique_name;
     my $assembly_name = $genome_db->assembly;
 
     my $compara_url = Bio::EnsEMBL::Hive::DBSQL::DBConnection->new(-dbconn => $self->compara_dba->dbc)->url;

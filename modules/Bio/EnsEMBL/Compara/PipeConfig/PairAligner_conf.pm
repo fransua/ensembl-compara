@@ -172,9 +172,6 @@ sub default_options {
    						'masking_options' => '{default_soft_masking => 1}'},
    			    },
 	    
-	#Use transactions in pair_aligner and chaining/netting modules (eg LastZ.pm, PairAligner.pm, AlignmentProcessing.pm)
-	'do_transactions' => 1,
-
         #
 	#Default filter_duplicates
 	#
@@ -260,8 +257,8 @@ sub pipeline_create_commands {
         #Store CodingExon coverage statistics
         $self->db_cmd('CREATE TABLE IF NOT EXISTS statistics (
         method_link_species_set_id  int(10) unsigned NOT NULL,
-        species_name                varchar(40) NOT NULL DEFAULT "",
-        seq_region                  varchar(40) NOT NULL DEFAULT "",
+        genome_db_id                int(10) unsigned NOT NULL,
+        dnafrag_id                  bigint unsigned NOT NULL,
         matches                     INT(10) DEFAULT 0,
         mis_matches                 INT(10) DEFAULT 0,
         ref_insertions              INT(10) DEFAULT 0,
@@ -276,14 +273,6 @@ sub pipeline_create_commands {
     ];
 }
 
-sub pipeline_wide_parameters {  # these parameter values are visible to all analyses, can be overridden by parameters{} and input_id{}
-    my ($self) = @_;
-
-    return {
-            %{$self->SUPER::pipeline_wide_parameters},          # here we inherit anything from the base class
-	    'do_transactions' => $self->o('do_transactions'),
-    };
-}
 
 sub resource_classes {
     my ($self) = @_;
@@ -441,7 +430,7 @@ sub pipeline_analyses {
 	       -hive_capacity => 10,
  	       -wait_for => [ 'store_sequence', 'store_sequence_again', 'chunk_and_group_dna', 'dump_dna_factory', 'dump_dna'  ],
 	       -flow_into => {
-			       1 => [ 'remove_inconsistencies_after_pairaligner' ],
+			       1 => [ 'check_no_partial_gabs' ],
 			       2 => [ $self->o('pair_aligner_logic_name')  ],
 			   },
 	       -rc_name => '1Gb',
@@ -469,27 +458,22 @@ sub pipeline_analyses {
 	       -can_be_empty  => 1,
 	       -rc_name => 'crowd_himem',
 	    },
-	    {  -logic_name => 'remove_inconsistencies_after_pairaligner',
-               -module     => 'Bio::EnsEMBL::Compara::RunnableDB::PairAligner::RemoveAlignmentDataInconsistencies',
-	       -parameters => { },
+            {   -logic_name => 'check_no_partial_gabs',
+                -module     => 'Bio::EnsEMBL::Compara::RunnableDB::PairAligner::SqlHealthChecks',
+                -parameters => {
+                    'mode'          => 'gab_inconsistencies',
+                },
  	       -wait_for =>  [ $self->o('pair_aligner_logic_name'), $self->o('pair_aligner_logic_name') . "_himem1" ],
 	       -flow_into => {
-			      1 => [ 'delete_trivial_alignments' ],
+			      1 => [ 'check_not_too_many_blocks' ],
 			     },
-	       -rc_name => '1Gb',
-	    },
-	    {  -logic_name => 'delete_trivial_alignments',
-               -module     => 'Bio::EnsEMBL::Compara::RunnableDB::PairAligner::DeleteTrivialAlignments',
-	       -parameters => { },
-	       -flow_into => [ 'check_not_too_many_blocks' ],
-	       -rc_name => '1Gb',
 	    },
             {   -logic_name => 'check_not_too_many_blocks',
                 -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlHealthcheck',
                 -parameters => {
                     'description'   => q{filter_duplicates / axtChain won't work if there are too many blocks},
-                    'query'         => 'SELECT COUNT(*) FROM genomic_align_block WHERE method_link_species_set_id = #method_link_species_set_id#',
-                    'expected_size' => '< 10000000',
+                    'query'         => 'SELECT COUNT(*) AS cnt FROM genomic_align_block WHERE method_link_species_set_id = #method_link_species_set_id# GROUP BY 1+1 HAVING cnt > #max_blocks#',
+                    'max_blocks'    => 10000000,
                 },
                 -flow_into  => [ 'update_max_alignment_length_before_FD' ],
             },
@@ -519,6 +503,7 @@ sub pipeline_analyses {
 				 },
 	       -hive_capacity => $self->o('filter_duplicates_hive_capacity'),
 	       -batch_size    => $self->o('filter_duplicates_batch_size'),
+	       -can_be_empty  => 1,
 	       -flow_into => {
 			       -1 => [ 'filter_duplicates_himem' ], # MEMLIMIT
 			     },
@@ -539,7 +524,7 @@ sub pipeline_analyses {
  	       -parameters => {
 			       'quick' => $self->o('quick'),
 			      },
- 	       -wait_for =>  [ 'filter_duplicates', 'filter_duplicates_himem' ],
+               -wait_for =>  [ 'create_filter_duplicates_jobs', 'filter_duplicates', 'filter_duplicates_himem' ],
 	       -rc_name => '1Gb',
  	    },
 #

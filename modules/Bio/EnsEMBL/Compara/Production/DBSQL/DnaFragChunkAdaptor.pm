@@ -43,6 +43,8 @@ use Bio::EnsEMBL::Compara::DBSQL::SequenceAdaptor;
 
 use DBI qw(:sql_types);
 
+use Bio::EnsEMBL::Utils::Scalar qw(:assert);
+
 use base qw(Bio::EnsEMBL::Compara::DBSQL::BaseAdaptor);
 
 
@@ -149,9 +151,7 @@ sub fetch_all_by_DnaFragChunkSet {
   my $self = shift;
   my $dnafrag_chunk_set = shift;
 
-  unless(defined $dnafrag_chunk_set) {
-    $self->throw("fetch_all_by_DnaFragChunkSet must have a DnaFragChunkSet");
-  }
+  assert_ref($dnafrag_chunk_set, 'Bio::EnsEMBL::Compara::Production::DnaFragChunkSet');
 
   my $dnafrag_chunk_set_id = $dnafrag_chunk_set->dbID;
   $self->bind_param_generic_fetch($dnafrag_chunk_set_id, SQL_INTEGER);
@@ -196,15 +196,15 @@ sub _objs_from_sth {
 
   while( my $row_hashref = $sth->fetchrow_hashref()) {
 
-    my $dfc = Bio::EnsEMBL::Compara::Production::DnaFragChunk->new();
-
-    $dfc->adaptor($self);
-    $dfc->dbID($row_hashref->{'dnafrag_chunk_id'});
-    $dfc->seq_start($row_hashref->{'seq_start'});
-    $dfc->seq_end($row_hashref->{'seq_end'});
-    $dfc->sequence_id($row_hashref->{'sequence_id'});
-    $dfc->dnafrag_id($row_hashref->{'dnafrag_id'});
-    $dfc->dnafrag_chunk_set_id($row_hashref->{'dnafrag_chunk_set_id'}),
+    my $dfc = Bio::EnsEMBL::Compara::Production::DnaFragChunk->new_fast({
+        'adaptor'               => $self,
+        'dbID'                  => $row_hashref->{'dnafrag_chunk_id'},
+        'seq_start'             => $row_hashref->{'seq_start'} || 0,
+        'seq_end'               => $row_hashref->{'seq_end'} || 0,
+        'sequence_id'           => $row_hashref->{'sequence_id'},
+        'dnafrag_id'            => $row_hashref->{'dnafrag_id'},
+        'dnafrag_chunk_set_id'  => $row_hashref->{'dnafrag_chunk_set_id'},
+    });
 
     push @chunks, $dfc;
 

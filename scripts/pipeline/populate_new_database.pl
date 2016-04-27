@@ -288,7 +288,7 @@ my $all_default_species_sets = get_all_species_sets_with_tags($master_dba, $all_
 if($only_show_intentions) {
     print "GenomeDB entries to be copied:\n";
     foreach my $genome_db (@$all_default_genome_dbs) {
-        print "\t".$genome_db->dbID.": ".$genome_db->name."\n";
+        print "\t".$genome_db->dbID.": ".$genome_db->_get_unique_name."\n";
     }
     print "MethodLinkSpeciesSet entries to be copied:\n";
     foreach my $mlss (sort {$a->method->dbID <=> $b->method->dbID} @$all_default_method_link_species_sets) {
@@ -296,7 +296,7 @@ if($only_show_intentions) {
     }
     print "SpeciesSet entries to be copied:\n";
     foreach my $ss (@$all_default_species_sets) {
-        print "\t".$ss->dbID.": ".join(', ', map { $_->name } @{$ss->genome_dbs})."\n";
+        print "\t".$ss->dbID.": ".join(', ', map { $_->_get_unique_name} @{$ss->genome_dbs})."\n";
     }
     exit 0;
 }
@@ -483,7 +483,7 @@ sub get_all_default_genome_dbs {
     foreach my $this_mlss_id (@$mlss_ids) {
       my $this_mlss = $method_link_species_set_adaptor->fetch_by_dbID($this_mlss_id);
       foreach my $this_genome_db (@{$this_mlss->species_set_obj->genome_dbs}) {
-        $all_species->{$this_genome_db->name} = $this_genome_db;
+        $all_species->{$this_genome_db->dbID} = $this_genome_db;
       }
     }
     return [values %$all_species];
@@ -690,7 +690,7 @@ sub copy_all_dnafrags {
       print TEMP join("\t", @$this_row), "\n";
     }
     close(TEMP);
-    print "Copying dnafrag for ", $this_genome_db->name, ":\n . ";
+    print "Copying dnafrag for ", $this_genome_db->_get_unique_name, ":\n . ";
     if ($pass) {
       system("mysqlimport", "-u$user", "-p$pass", "-h$host", "-P$port", "-L", "-l", "-i", $dbname, $filename);
     } else {

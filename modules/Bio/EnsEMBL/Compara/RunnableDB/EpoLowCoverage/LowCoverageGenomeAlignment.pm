@@ -75,11 +75,6 @@ sub fetch_input {
     throw("MethodLinkSpeciesSet->dbID is not defined for this LowCoverageAlignment job");
   }
 
-  #set default to do transactions
-  if (!defined $self->param('do_transactions')) {
-      $self->param('do_transactions', 1);
-  }
-
   #load from genomic_align_block ie using in 2X mode
   $self->_load_GenomicAligns($self->param('genomic_align_block_id'));
 
@@ -195,10 +190,6 @@ sub _write_output {
   my $use_fresh_connection = 1;
   my $skip_left_right_index = 0;
 
-  #Set use_autoincrement to 1 otherwise the GenomicAlignBlockAdaptor will use
-  #LOCK TABLES which does an implicit commit and prevent any rollback
-  $self->compara_dba->get_GenomicAlignBlockAdaptor->use_autoincrement(1);
-  
   my $mlssa = $self->compara_dba->get_MethodLinkSpeciesSetAdaptor;
   my $mlss = $mlssa->fetch_by_dbID($self->param('mlss_id'));
   my $mlss_id = $mlss->dbID;
