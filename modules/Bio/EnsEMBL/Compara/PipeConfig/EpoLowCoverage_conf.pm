@@ -303,6 +303,14 @@ sub pipeline_analyses {
 		-rc_name => '100Mb',
 	    },
 
+            {   -logic_name => 'register_mlss',
+                -module     => 'Bio::EnsEMBL::Compara::RunnableDB::RegisterMLSS',
+		-parameters => {
+                    'mlss_id'       => $self->o('low_epo_mlss_id'),
+                    'master_db'     => $self->o('master_db'),
+                },
+            },
+
 # ------------------------------------------------[Import the high coverage alignments]---------------------------------------------------
 	    {   -logic_name => 'import_alignment',
 		-module     => 'Bio::EnsEMBL::Compara::RunnableDB::EpoLowCoverage::ImportAlignment',

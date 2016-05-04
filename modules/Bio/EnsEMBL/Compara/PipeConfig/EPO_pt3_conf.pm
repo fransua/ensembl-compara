@@ -222,8 +222,18 @@ return
                     'table'         => 'method_link_species_set',
                     'where'         => 'method_link_species_set_id = #epo_mlss_id#',
                 },
+                -flow_into     => [ 'register_mlss' ],
+            },
+
+            {   -logic_name    => 'register_mlss',
+                -module        => 'Bio::EnsEMBL::Compara::RunnableDB::RegisterMLSS',
+                -parameters    => {
+                    'master_db'     => '#compara_master#',
+                    'mlss_id'       => '#epo_mlss_id#',
+                },
                 -flow_into     => [ 'make_species_tree' ],
             },
+
 
 # ------------------------------------- create the ancestral db	
 {
