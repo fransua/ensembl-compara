@@ -45,9 +45,10 @@ package Bio::EnsEMBL::Compara::Production::DnaFragChunkSet;
 use strict;
 use warnings;
 
-use Bio::EnsEMBL::Utils::Exception;
 use Bio::EnsEMBL::Utils::Argument;
 use Bio::EnsEMBL::Utils::Scalar qw(assert_ref);
+
+use Bio::EnsEMBL::Hive::Utils 'dir_revhash';
 
 use base ('Bio::EnsEMBL::Storable');        # inherit dbID(), adaptor() and new() methods
 
@@ -237,15 +238,13 @@ sub total_basepairs {
 sub load_all_sequences {
     my $self = shift;
 
-    #Masking options are stored in the dna_collection
-    my $dna_collection = $self->dna_collection;
-
     if ($self->count == 1) {
 
         my $chunk = $self->get_all_DnaFragChunks()->[0];
         unless($chunk->sequence) {
-            $chunk->masking_options($dna_collection->masking_options);
-            $chunk->cache_sequence;
+            $chunk->masking_options($self->dna_collection->masking_options);
+            # Will fetch the masked sequence from the core db and cache it in the object
+            $chunk->fetch_masked_sequence();
         }
 
     } else {
@@ -258,9 +257,9 @@ sub load_all_sequences {
                 $chunk->sequence($sequences->{$this_seq_id}); #this sets $chunk->sequence_id=0
                 $chunk->sequence_id($this_seq_id); #reset seq_id
             } else {
-                $chunk->masking_options($dna_collection->masking_options);
-                # Will fetch the masked sequence from the core db and store it in the sequence table
-                $chunk->cache_sequence();
+                $chunk->masking_options($self->dna_collection->masking_options);
+                # Will fetch the masked sequence from the core db and cache it in the object
+                $chunk->fetch_masked_sequence();
             }
         }
     }
@@ -291,6 +290,27 @@ sub dump_to_fasta_file {
 
     close $fh;
 }
+
+
+=head2 dump_loc_file
+
+  Example     : $chunk_set->dump_loc_file();
+  Description : Returns the path to this ChunkSet in the dump location of its DnaCollection
+  Returntype  : String
+  Exceptions  : none
+  Caller      : general
+  Status      : Stable
+
+=cut
+
+sub dump_loc_file {
+    my $self = shift;
+    my $dump_loc = $self->dna_collection->dump_loc;
+    my $sub_dir  = dir_revhash($self->dbID);
+    return sprintf('%s/%s/chunk_set_%s.fa', $dump_loc, $sub_dir, $self->dbID);
+}
+
+
 
 
 1;

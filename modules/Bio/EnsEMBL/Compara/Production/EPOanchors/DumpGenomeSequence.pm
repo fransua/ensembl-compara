@@ -83,9 +83,8 @@ sub fetch_input {
     $genome_db->db_adaptor->dbc->prevent_disconnect( sub {
             foreach my $ref_dnafrag( @$all_dnafrags ) {
                 next unless $ref_dnafrag->is_reference;
-                # FIXME: should use isMT
-                next if ($ref_dnafrag->name=~/MT.*/i and $self->param('dont_dump_MT'));
-                push @all_slices, $ref_dnafrag->slice;
+                next if (($ref_dnafrag->dna_type eq 'MT') and $self->param('dont_dump_MT'));
+                $serializer->print_Seq($ref_dnafrag->slice);
             }
         });
     $self->param('all_slices', \@all_slices);

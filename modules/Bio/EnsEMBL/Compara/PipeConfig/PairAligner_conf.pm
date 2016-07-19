@@ -65,6 +65,10 @@ package Bio::EnsEMBL::Compara::PipeConfig::PairAligner_conf;
 
 use strict;
 use warnings;
+
+use Bio::EnsEMBL::Hive::Version 2.4;
+use Bio::EnsEMBL::Hive::PipeConfig::HiveGeneric_conf;
+
 use base ('Bio::EnsEMBL::Compara::PipeConfig::ComparaGeneric_conf');  # All Hive databases configuration files should inherit from HiveGeneric, directly or indirectly
 
 sub default_options {
@@ -180,14 +184,13 @@ sub default_options {
 	'filter_duplicates_rc_name' => '1Gb',
 	'filter_duplicates_himem_rc_name' => 'crowd_himem',
     'filter_duplicates_hive_capacity' => 200,
-    'filter_duplicates_batch_size' => 5,
+    'filter_duplicates_batch_size' => 10,
 
 	#
 	#Default pair_aligner
 	#
    	'pair_aligner_method_link' => [1001, 'LASTZ_RAW'],
 	'pair_aligner_logic_name' => 'LastZ',
-	'pair_aligner_program' => 'lastz',
 	'pair_aligner_module' => 'Bio::EnsEMBL::Compara::RunnableDB::PairAligner::LastZ',
 	'pair_aligner_options' => 'T=1 K=3000 L=3000 H=2200 O=400 E=30 --ambiguous=iupac', #hsap vs mammal
 	'pair_aligner_analysis_capacity' => 700,
@@ -365,9 +368,8 @@ sub pipeline_analyses {
 			       5 => [ 'create_alignment_chains_jobs' ],
 			       6 => [ 'create_alignment_nets_jobs' ],
 			       10 => [ 'create_filter_duplicates_net_jobs' ],
-			       7 => [ 'pairaligner_stats' ],
+			       7 => [ 'register_mlss' ],
 			       8 => [ 'healthcheck' ],
-			       9 => [ 'dump_dna_factory' ],
 			      },
 	       -rc_name => '1Gb',
   	    },
@@ -400,35 +402,13 @@ sub pipeline_analyses {
 	       -can_be_empty  => 1,
 	       -rc_name => 'crowd',
   	    },
-	    {  -logic_name => 'dump_dna_factory',
-	       -module     => 'Bio::EnsEMBL::Compara::RunnableDB::PairAligner::DumpDnaCollectionFactory',
-	       -parameters => {
-			       'dump_dna'=>1,
-			       'dump_min_size'=>1,
-			       },
-	       -can_be_empty  => 1,
-	       -wait_for => [ 'store_sequence', 'store_sequence_again' ],
-	       -rc_name => '1Gb',
-	       -flow_into => {
- 	          2 => [ 'dump_dna' ],
- 	       },
-	    },
-	    {  -logic_name => 'dump_dna',
-	       -module     => 'Bio::EnsEMBL::Compara::RunnableDB::PairAligner::DumpDnaCollection',
-	       -parameters => {
-			       'dump_dna'=>1,
-			       },
-	       -can_be_empty  => 1,
-	       -hive_capacity => 10,
-	       -rc_name => '1Gb',
-	    },
  	    {  -logic_name => 'create_pair_aligner_jobs',  #factory
  	       -module     => 'Bio::EnsEMBL::Compara::RunnableDB::PairAligner::CreatePairAlignerJobs',
  	       -parameters => { 
                                'include_MT' => $self->o('include_MT'),
                               },
 	       -hive_capacity => 10,
- 	       -wait_for => [ 'store_sequence', 'store_sequence_again', 'chunk_and_group_dna', 'dump_dna_factory', 'dump_dna'  ],
+ 	       -wait_for => [ 'store_sequence', 'store_sequence_again', 'chunk_and_group_dna'  ],
 	       -flow_into => {
 			       1 => [ 'check_no_partial_gabs' ],
 			       2 => [ $self->o('pair_aligner_logic_name')  ],
@@ -454,7 +434,6 @@ sub pipeline_analyses {
 			       'pair_aligner_exe' => $self->o('pair_aligner_exe'),
 			      },
  	       -batch_size => $self->o('pair_aligner_batch_size'),
- 	       -program    => $self->o('pair_aligner_program'), 
 	       -can_be_empty  => 1,
 	       -rc_name => 'crowd_himem',
 	    },
@@ -492,7 +471,7 @@ sub pipeline_analyses {
  	       -parameters => { },
  	       -wait_for =>  [ 'update_max_alignment_length_before_FD' ],
 	        -flow_into => {
-			       2 => [ 'filter_duplicates' ], 
+			       2 => { 'filter_duplicates' => INPUT_PLUS() },
 			     },
 	       -rc_name => '1Gb',
  	    },
@@ -553,7 +532,7 @@ sub pipeline_analyses {
 			      },
 	       -hive_capacity => 1,
 	       -flow_into => {
-			      2 => [ 'dump_large_nib_for_chains' ],
+			      2 => { 'dump_large_nib_for_chains' => INPUT_PLUS() },
 			     },
 	       -rc_name => '1Gb',
  	    },
@@ -635,20 +614,12 @@ sub pipeline_analyses {
  	       -module     => 'Bio::EnsEMBL::Compara::RunnableDB::PairAligner::CreateAlignmentNetsJobs',
  	       -parameters => { },
 		-flow_into => {
-#			       1 => [ 'set_internal_ids', 'update_max_alignment_length_after_net' ],
-#			       1 => [ 'set_internal_ids', 'remove_inconsistencies_after_net' ], # lg4, 1Apr2015: skipping set_internal_ids to see if set_internal_ids_collection is any faster
-			       1 => [ 'remove_inconsistencies_after_net' ],                     # lg4, 1Apr2015: skipping set_internal_ids to see if set_internal_ids_collection is any faster
+			       #'A->1' => [ 'remove_inconsistencies_after_net' ],
+			       #'2->A' => [ 'alignment_nets' ],
+			       1 => [ 'remove_inconsistencies_after_net' ],
 			       2 => [ 'alignment_nets' ],
 			      },
  	       -wait_for => [ 'update_max_alignment_length_after_chain' ],
-	       -rc_name => '1Gb',
- 	    },
- 	    {  -logic_name => 'set_internal_ids',
- 	       -module     => 'Bio::EnsEMBL::Compara::RunnableDB::PairAligner::SetInternalIds',
- 	       -parameters => {
-			       'tables' => [ 'genomic_align_block', 'genomic_align' ],
-			       'skip' => $self->o('patch_alignments'),
-			      },
 	       -rc_name => '1Gb',
  	    },
  	    {  -logic_name => 'alignment_nets',
@@ -659,7 +630,6 @@ sub pipeline_analyses {
 	       -flow_into => {
 			      -1 => [ 'alignment_nets_himem' ],  # MEMLIMIT
 			     },
-#	       -wait_for => [ 'set_internal_ids' ],                                     # lg4, 1Apr2015: skipping set_internal_ids to see if set_internal_ids_collection is any faster
 	       -rc_name => '1Gb',
  	    },
 	    {  -logic_name => 'alignment_nets_himem',
@@ -667,7 +637,7 @@ sub pipeline_analyses {
  	       -batch_size => $self->o('net_batch_size'),
  	       -module     => 'Bio::EnsEMBL::Compara::RunnableDB::PairAligner::AlignmentNets',
  	       -parameters => $self->o('net_parameters'),
-	       -can_be_empty  => 1,
+               -can_be_empty => 1,
 	       -rc_name => 'crowd',
  	    },
  	    {
@@ -676,7 +646,7 @@ sub pipeline_analyses {
 	       -flow_into => {
 			       1 => [ 'update_max_alignment_length_after_net' ],
 			   },
- 	       -wait_for =>  [ 'alignment_nets', 'alignment_nets_himem' ],
+ 	       -wait_for =>  [ 'alignment_nets', 'alignment_nets_himem' ],  # Needed because of bi-directional netting: 2 jobs in create_alignment_nets_jobs can result in 1 job here
 	       -rc_name => '1Gb',
 	    },
  	    {  -logic_name => 'create_filter_duplicates_net_jobs', #factory
@@ -684,7 +654,7 @@ sub pipeline_analyses {
                -parameters => { },
                -wait_for =>  [ 'remove_inconsistencies_after_net' ],
                -flow_into => {
-                              2 => [ 'filter_duplicates_net' ], 
+                              2 => { 'filter_duplicates_net' => INPUT_PLUS() },
                             },
                -can_be_empty  => 1,
                -rc_name => 'crowd',
@@ -739,6 +709,13 @@ sub pipeline_analyses {
 	      -wait_for => [ 'set_internal_ids_collection' ],
 	      -rc_name => '1Gb',
 	    },
+            {   -logic_name         => 'register_mlss',
+                -module             => 'Bio::EnsEMBL::Compara::RunnableDB::RegisterMLSS',
+                -parameters         => {
+                    'master_db' => $self->o('master_db'),
+                },
+                -flow_into          => [ 'pairaligner_stats' ],
+            },
 	    { -logic_name => 'pairaligner_stats',
 	      -module => 'Bio::EnsEMBL::Compara::RunnableDB::PairAligner::PairAlignerStats',
 	      -parameters => {

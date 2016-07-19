@@ -124,7 +124,7 @@ sub fetch_input {
   map {$chunks_lookup{$_->dbID} = $_} @{$query_DnaFragChunkSet->get_all_DnaFragChunks};
   $self->param('chunks_lookup', \%chunks_lookup);
 
-  $db_DnaFragChunkSet->load_all_sequences();
+  #$db_DnaFragChunkSet->load_all_sequences();
   $query_DnaFragChunkSet->load_all_sequences();
 
   throw("Missing method_link_type") unless($self->param('method_link_type'));
@@ -138,7 +138,7 @@ sub fetch_input {
       $sth->execute();
       my ($num_alignments) = $sth->fetchrow_array();
       $sth->finish();
-      if ($num_alignments >= $self->max_alignments) {
+      if ($num_alignments >= $self->param('max_alignments')) {
 	  throw("Too many alignments ($num_alignments) have been stored already for MLSS ".$mlss->dbID."\n".
 		"  Try changing the parameters or increase the max_alignments option if you think\n".
 		"  your system can cope with so many alignments.");
@@ -179,10 +179,7 @@ sub delete_fasta_dumps_but_these {
 
   my $work_dir = $self->worker_temp_directory;
 
-  open F, "ls $work_dir|";
-  while (my $file = <F>) {
-    chomp $file;
-    next unless ($file =~ /\.fasta$/);
+  foreach my $file (glob('*.fasta')) {
     my $delete = 1;
     foreach my $fasta_file (@{$fasta_files_not_to_delete}) {
       if ($file eq basename($fasta_file)) {
@@ -192,7 +189,6 @@ sub delete_fasta_dumps_but_these {
     }
     unlink "$work_dir/$file" if ($delete);
   }
-  close F;
 }
 
 sub write_output {
@@ -244,6 +240,10 @@ sub dumpChunkSetToWorkdir
   my $self      = shift;
   my $chunkSet   = shift;
 
+  if ($chunkSet->dna_collection->dump_loc) {
+      return $chunkSet->dump_loc_file;
+  }
+
   my $starttime = time();
 
   my $fastafile = $self->worker_temp_directory. "chunk_set_". $chunkSet->dbID .".fasta";
@@ -273,8 +273,6 @@ sub dumpChunkToWorkdir
 
   if($self->debug){print("dumpChunkToWorkdir : $fastafile\n");}
 
-
-  $chunk->cache_sequence;
   $chunk->dump_to_fasta_file($fastafile);
 
   if($self->debug){printf("  %1.3f secs to dump\n", (time()-$starttime));}

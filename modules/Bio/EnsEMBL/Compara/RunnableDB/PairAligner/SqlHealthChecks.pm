@@ -50,7 +50,7 @@ package Bio::EnsEMBL::Compara::RunnableDB::PairAligner::SqlHealthChecks;
 use strict;
 use warnings;
 
-use base ('Bio::EnsEMBL::Compara::RunnableDB::GeneTrees::SqlHealthChecks');
+use base ('Bio::EnsEMBL::Hive::RunnableDB::SqlHealthcheck');
 
 
 
@@ -65,7 +65,7 @@ my $config = {
         tests => [
             {
                 description => 'genomic_align_block entries must be linked to genomic_align',
-                query => 'SELECT gab.genomic_align_block_id FROM genomic_align_block gab LEFT JOIN USING (genomic_align_block_id) WHERE ga.genomic_align_block_id IS NULL AND gab.method_link_species_set_id = #method_link_species_set_id#',
+                query => 'SELECT gab.genomic_align_block_id FROM genomic_align_block gab LEFT JOIN genomic_align ga USING (genomic_align_block_id) WHERE ga.genomic_align_block_id IS NULL AND gab.method_link_species_set_id = #method_link_species_set_id#',
             },
             {
                 description => 'genomic_align_block entries must be linked to at least two genomic_align entries',

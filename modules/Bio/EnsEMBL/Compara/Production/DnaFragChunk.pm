@@ -45,7 +45,6 @@ use Time::HiRes qw(time gettimeofday tv_interval);
 use Bio::Seq;
 use Bio::SeqIO;
 
-use Bio::EnsEMBL::Utils::Exception;
 use Bio::EnsEMBL::Utils::Scalar qw(:assert);
 
 use base ('Bio::EnsEMBL::Storable');        # inherit dbID(), adaptor() and new() methods
@@ -75,7 +74,7 @@ sub new {
                the this chunks start,end.
   Returntype : Bio::EnsEMBL::Slice object
   Exceptions : none
-  Caller     : general, self->fetch_masked_sequence()
+  Caller     : general
 
 =cut
 
@@ -149,26 +148,17 @@ sub _fetch_masked_sequence {
   if(defined($self->masking_options)) {
     $masking_options = eval($self->masking_options);
     my $logic_names = $masking_options->{'logic_names'};
-    if(defined($masking_options->{'default_soft_masking'}) and
-       $masking_options->{'default_soft_masking'} == 0)
-    {
-      #print "getting HARD masked sequence...\n";
-      $seq = $slice->get_repeatmasked_seq($logic_names,0,$masking_options);
-    } else {
-      #print "getting SOFT masked sequence...\n";
-      $seq = $slice->get_repeatmasked_seq($logic_names,1,$masking_options);
-    }
+    my $soft_masking = $masking_options->{'default_soft_masking'} // 1;
+    #printf("getting %s masked sequence...\n", $soft_masking ? 'SOFT' : 'HARD');
+
+    my $masked_slice = $slice->get_repeatmasked_seq($logic_names, $soft_masking, $masking_options);
+    $seq = Bio::PrimarySeq->new( -id => $id, -seq => $masked_slice->seq);
   }
   else {  # no masking options set, so get unmasked sequence
     #print "getting UNMASKED sequence...\n";
     $seq = Bio::PrimarySeq->new( -id => $id, -seq => $slice->seq);
   }
 
-  unless($seq->isa('Bio::PrimarySeq')) {
-    #print("seq is a [$seq] not a [Bio::PrimarySeq]\n");
-    my $oldseq = $seq;
-    $seq = Bio::PrimarySeq->new( -id => $id, -seq => $oldseq->seq);
-  }
   #print ((time()-$starttime), " secs\n");
 
   #print STDERR "sequence length : ",$seq->length,"\n";
@@ -236,16 +226,15 @@ sub display_id {
 sub bioseq {
   my $self = shift;
 
-  my $seq = undef;
-  if(not defined($self->sequence())) {
-    $seq = $self->fetch_masked_sequence;
+  my $seq_str = $self->sequence();
+  if(not defined $seq_str) {
+    $seq_str = $self->fetch_masked_sequence;
   }
   
-  $seq = Bio::Seq->new(-seq        => $self->sequence(),
+  return Bio::Seq->new(-seq        => $seq_str,
                        -display_id => $self->display_id(),
                        -primary_id => $self->sequence_id(),
                        );
-  return $seq;
 }
 
 ##########################
@@ -406,24 +395,5 @@ sub dump_chunks_to_fasta_file
   return $self;
 }
 
-
-sub cache_sequence
-{
-  my $self = shift;
-  
-  # $self->sequence will load from compara if available, if not go fetch it
-  unless($self->sequence) {
-    $self->fetch_masked_sequence;
-  }
-  
-  # fetching sequence will set $self->sequence but not sequence_id so store it
-  # fetching may have occurred in a previous method call, so keep this logic
-  # separate to make sure it will get stored
-  if($self->sequence_id==0) {
-    $self->adaptor->update_sequence($self);
-  }
-
-  return $self;
-}
 
 1;

@@ -27,7 +27,7 @@ limitations under the License.
 
 =head1 NAME
 
-Bio::EnsEMBL::Compara::RunnableDB::PairAlignerConfig
+Bio::EnsEMBL::Compara::RunnableDB::PairAligner::PairAlignerStats
 
 =cut
 
@@ -91,16 +91,15 @@ sub fetch_input {
 	  die("must define either mlss_id or method_link_type and genome_db_ids");
       }
   }
-
-  $self->param('ref_species', $mlss->get_value_for_tag("reference_species"));
-  $self->param('non_ref_species', $mlss->get_value_for_tag("non_reference_species"));
   $self->param('mlss_id', $mlss->dbID);
+  $self->param('mlss', $mlss);
 
-  my $genome_db_adaptor = $self->compara_dba->get_GenomeDBAdaptor;
-
-  my $ref_genome_db = $genome_db_adaptor->fetch_by_registry_name($self->param('ref_species'));
-  my $non_ref_genome_db = $genome_db_adaptor->fetch_by_registry_name($self->param('non_ref_species'));
-
+  my $genome_dbs = $mlss->species_set_obj->genome_dbs;
+  my ($ref_genome_db, $non_ref_genome_db) = @$genome_dbs;
+  unless (($genome_dbs->[0]->name eq $mlss->get_value_for_tag('reference_species'))
+      && (!$mlss->has_tag('reference_component') || ($genome_dbs->[0]->genome_component eq $mlss->get_value_for_tag('reference_component')))) {
+        ($non_ref_genome_db, $ref_genome_db) = @$genome_dbs;
+  }
   $self->param('ref_genome_db', $ref_genome_db);
   $self->param('non_ref_genome_db', $non_ref_genome_db);
 
@@ -108,27 +107,14 @@ sub fetch_input {
   my $non_ref_db = $non_ref_genome_db->db_adaptor;
 
   #Create url from dbc
-  my $ref_url = generate_url($ref_db->dbc, $self->param('ref_species'));
-  my $non_ref_url = generate_url($non_ref_db->dbc, $self->param('non_ref_species'));
+  my $ref_url = generate_url($ref_db->dbc, $ref_genome_db->name);
+  my $non_ref_url = generate_url($non_ref_db->dbc, $non_ref_genome_db->name);
 
-  #Need to protect with quotes
-  $self->param('ref_dbc_url', "\"$ref_url\"");
-  $self->param('non_ref_dbc_url', "\"$non_ref_url\"");
+  $self->param('ref_dbc_url', $ref_url);
+  $self->param('non_ref_dbc_url', $non_ref_url);
 
-  my $perl_path = $ENV{'ENSEMBL_CVS_ROOT_DIR'};
-
-  #Set up paths to various perl scripts
-  unless ($self->param('dump_features')) {
-      $self->param('dump_features', $perl_path . "/ensembl-compara/scripts/dumps/dump_features.pl");
-  }
-  
-  unless (-e $self->param('dump_features')) {
-      die(self->param('dump_features') . " does not exist");
-  }
-  
-  unless ($self->param('create_pair_aligner_page')) {
-      $self->param('create_pair_aligner_page', $perl_path . "/ensembl-compara/scripts/pipeline/create_pair_aligner_page.pl");
-  }
+  $self->require_executable('dump_features');
+  $self->require_executable('create_pair_aligner_page');
 
   #Get ensembl schema version from meta table if not defined
   if (!defined $self->param('ensembl_release')) {
@@ -161,8 +147,8 @@ sub write_output {
   return if ($self->param('skip'));
 
   #Dump bed files if necessary
-  my ($ref_genome_bed) = $self->dump_bed_file($self->param('ref_species'), $self->param('ref_dbc_url'), $self->param('reg_conf'));
-  my ($non_ref_genome_bed) = $self->dump_bed_file($self->param('non_ref_species'), $self->param('non_ref_dbc_url'), $self->param('reg_conf'));
+  my ($ref_genome_bed) = $self->dump_bed_file($self->param('ref_genome_db'), $self->param('ref_dbc_url'), $self->param('reg_conf'));
+  my ($non_ref_genome_bed) = $self->dump_bed_file($self->param('non_ref_genome_db'), $self->param('non_ref_dbc_url'), $self->param('reg_conf'));
 
   
   #Create statistics
@@ -203,12 +189,12 @@ sub write_output {
 #regions. If a file of that convention already exists, it will not be overwritten.
 #
 sub dump_bed_file {
-    my ($self, $species, $dbc_url, $reg_conf) = @_;
+    my ($self, $genome_db, $dbc_url, $reg_conf) = @_;
 
-    #Need assembly
-    my $genome_db = $self->compara_dba->get_GenomeDBAdaptor->fetch_by_registry_name($species);
     my $assembly = $genome_db->assembly;
     my $name = $genome_db->_get_unique_name; #get production_name
+    my $species_arg   = "--species ".$genome_db->name;
+       $species_arg  .= " --component ".$genome_db->genome_component if $genome_db->genome_component;
     
     #Check if file already exists
     my $genome_bed_file = $self->param('bed_dir') ."/" . $name . "." . $assembly . "." . "genome.bed";
@@ -217,7 +203,7 @@ sub dump_bed_file {
 	print "$genome_bed_file already exists and not empty. Not overwriting.\n";
     } else {
         #Need to dump toplevel features
-        my $cmd = $self->param('dump_features') . " --url $dbc_url --species $name --feature toplevel > $genome_bed_file";
+        my $cmd = $self->param('dump_features') . " --url \"$dbc_url\" $species_arg --feature toplevel > $genome_bed_file";
 
         unless (system($cmd) == 0) {
             die("$cmd execution failed\n");
@@ -234,11 +220,7 @@ sub dump_bed_file {
 sub write_pairaligner_statistics {
     my ($self, $ref_genome_bed, $non_ref_genome_bed) = @_;
     my $verbose = 0;
-    my $method_link_species_set = $self->compara_dba->get_MethodLinkSpeciesSetAdaptor->fetch_by_dbID($self->param('mlss_id'));
-    
-    if (!$method_link_species_set) {
-	$self->throw(" ** ERROR **  Cannot find any MethodLinkSpeciesSet with this ID (" . $self->param('mlss_id') . ")\n");
-    }
+    my $method_link_species_set = $self->param_required('mlss');
 
     #Fetch the number of genomic_align_blocks
     my $sql = "SELECT count(*) FROM genomic_align_block WHERE method_link_species_set_id = " . $method_link_species_set->dbID;
@@ -253,24 +235,13 @@ sub write_pairaligner_statistics {
     #Find the reference and non-reference genome_db
     my $species_set = $method_link_species_set->species_set_obj->genome_dbs();
 
-    my $genome_db_adaptor = $self->compara_dba->get_GenomeDBAdaptor;
-    my $ref_genome_db = $genome_db_adaptor->fetch_by_registry_name($self->param('ref_species'));
-    my $non_ref_genome_db = $genome_db_adaptor->fetch_by_registry_name($self->param('non_ref_species'));
-
     my $ref_dbc_url = $self->param('ref_dbc_url');
     my $non_ref_dbc_url = $self->param('non_ref_dbc_url');
 
-    #self alignments
-    if (@$species_set == 1) {
-	$non_ref_genome_db = $ref_genome_db;
-	$non_ref_dbc_url = $ref_dbc_url;
-    }
-
-
     #Calculate the statistics
-    my ($ref_coverage) = $self->calc_stats($ref_dbc_url, $ref_genome_db, $ref_genome_bed);
+    my $ref_coverage = $self->calc_stats($ref_dbc_url, $self->param('ref_genome_db'), $ref_genome_bed);
 
-    my ($non_ref_coverage) = $self->calc_stats($non_ref_dbc_url, $non_ref_genome_db, $non_ref_genome_bed);
+    my $non_ref_coverage = (@$species_set == 1) ? $ref_coverage : $self->calc_stats($non_ref_dbc_url, $self->param('non_ref_genome_db'), $non_ref_genome_bed);
    
     #write information to method_link_species_set_tag table
 
@@ -308,7 +279,6 @@ sub store_mlss_tag_block_size {
 sub calc_stats {
     my ($self, $dbc_url, $genome_db, $genome_bed) = @_;
     my $species = $genome_db->_get_unique_name;
-    my $assembly_name = $genome_db->assembly;
 
     my $compara_url = Bio::EnsEMBL::Hive::DBSQL::DBConnection->new(-dbconn => $self->compara_dba->dbc)->url;
 
@@ -316,7 +286,9 @@ sub calc_stats {
     my $feature = "mlss_" . $self->param('mlss_id');
     my $alignment_bed = $self->param('output_dir') . "/" . $feature . "." . $species . ".bed";
     my $dump_features = $self->param('dump_features');
-    my $cmd = "$dump_features --url $dbc_url --compara_url '$compara_url' --species $species --feature $feature > $alignment_bed";
+    my $species_arg   = "--species ".$genome_db->name;
+       $species_arg  .= " --component ".$genome_db->genome_component if $genome_db->genome_component;
+    my $cmd = "$dump_features --url \"$dbc_url\" --compara_url '$compara_url' $species_arg --feature $feature > $alignment_bed";
 
     unless (system($cmd) == 0) {
         die("$cmd execution failed\n");
@@ -334,7 +306,7 @@ sub calc_stats {
     $self->warning($str);
 
     print "$str\n";
-    return ($coverage);
+    return $coverage;
 }
 
 #
