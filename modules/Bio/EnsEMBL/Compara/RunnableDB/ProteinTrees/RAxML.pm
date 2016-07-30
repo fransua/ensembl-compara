@@ -1,7 +1,8 @@
 
 =head1 LICENSE
 
-Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+Copyright [2016] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -52,12 +53,10 @@ sub param_defaults {
 
 sub run {
     my $self = shift;
-    $self->cleanup_worker_temp_directory;
     my $best_fit_model = $self->set_raxml_model();
     $self->param( 'best_fit_model', $best_fit_model );
     print "best-fit model: " . $self->param('best_fit_model') . "\n" if ( $self->debug );
-    $self->run_generic_command;
-
+    $self->SUPER::run(@_)
     #sleep(600);
 }
 

@@ -1,6 +1,7 @@
 =head1 LICENSE
 
-Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+Copyright [2016] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -162,16 +163,8 @@ sub pipeline_analyses {
             ],
             -wait_for   => [ 'copy_table', 'copy_table_factory' ],
             -flow_into  => {
-                2 => 'register_mlss',
+                2 => 'create_work_dir',
             },
-        },
-
-        {   -logic_name => 'register_mlss',
-            -module     => 'Bio::EnsEMBL::Compara::RunnableDB::RegisterMLSS',
-            -parameters => {
-                mlss_id     => '#synteny_mlss_id#',
-            },
-            -flow_into  => [ 'create_work_dir'],
         },
 
         {   -logic_name => 'create_work_dir',

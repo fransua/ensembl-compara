@@ -1,6 +1,7 @@
 =head1 LICENSE
 
-Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+Copyright [2016] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -386,11 +387,11 @@ sub store {
     my $sth;
     # Make sure that the variables are in the same order
     if ($has_root_id) {
-        $sth = $self->prepare('UPDATE gene_tree_root SET tree_type=?, member_type=?, clusterset_id=?, gene_align_id=?, method_link_species_set_id=?, stable_id=?, version=?, ref_root_id=? WHERE root_id=?'),
+        $sth = $self->prepare('UPDATE gene_tree_root SET tree_type=?, member_type=?, clusterset_id=?, gene_align_id=?, method_link_species_set_id=?, species_tree_root_id=?, stable_id=?, version=?, ref_root_id=? WHERE root_id=?'),
     } else {
-        $sth = $self->prepare('INSERT INTO gene_tree_root (tree_type, member_type, clusterset_id, gene_align_id, method_link_species_set_id, stable_id, version, ref_root_id, root_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
+        $sth = $self->prepare('INSERT INTO gene_tree_root (tree_type, member_type, clusterset_id, gene_align_id, method_link_species_set_id, species_tree_root_id, stable_id, version, ref_root_id, root_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
     }
-    $sth->execute($tree->tree_type, $tree->member_type, $tree->clusterset_id, $tree->gene_align_id, $tree->method_link_species_set_id, $tree->stable_id, $tree->version, $tree->ref_root_id, $root_id);
+    $sth->execute($tree->tree_type, $tree->member_type, $tree->clusterset_id, $tree->gene_align_id, $tree->method_link_species_set_id, $tree->species_tree_root_id, $tree->stable_id, $tree->version, $tree->ref_root_id, $root_id);
     
     $tree->adaptor($self);
 
@@ -403,7 +404,7 @@ sub delete_tree {
     assert_ref($tree, 'Bio::EnsEMBL::Compara::GeneTree');
 
     # Remove all the nodes but the root
-    my $gene_tree_node_Adaptor = $tree->root->adaptor;
+    my $gene_tree_node_Adaptor = $self->db->get_GeneTreeNodeAdaptor;
     for my $node (@{$tree->get_all_nodes}) {
         next if ($node->node_id() == $tree->root->node_id());
         $gene_tree_node_Adaptor->delete_node($node);
@@ -421,7 +422,7 @@ sub delete_tree {
     }
 
     # Finally remove the root node
-    $gene_tree_node_Adaptor->delete_node($tree->root);
+    $gene_tree_node_Adaptor->delete_node($tree->root) if $tree->root;
 
     # Only for "default" trees
     unless ($tree->ref_root_id) {
@@ -441,7 +442,7 @@ sub delete_tree {
 ###################################
 
 sub _tag_capabilities {
-    return ('gene_tree_root_tag', 'gene_tree_root_attr', 'root_id', 'root_id');
+    return ('gene_tree_root_tag', 'gene_tree_root_attr', 'root_id', 'root_id', 'tag', 'value');
 }
 
 
@@ -470,6 +471,7 @@ sub _columns {
         gtr.clusterset_id
         gtr.gene_align_id
         gtr.method_link_species_set_id
+        gtr.species_tree_root_id
         gtr.stable_id
         gtr.version
         gtr.ref_root_id
@@ -484,7 +486,6 @@ sub _objs_from_sth {
   my @tree_list = ();
 
   while(my $rowhash = $sth->fetchrow_hashref) {
-    #my $tree = new Bio::EnsEMBL::Compara::GeneTree(-adaptor => $self, %$rowhash);
     my $tree = Bio::EnsEMBL::Compara::GeneTree->new_fast({
         adaptor                     => $self,
         _root_id                    => $rowhash->{root_id},
@@ -493,6 +494,7 @@ sub _objs_from_sth {
         _clusterset_id              => $rowhash->{clusterset_id},
         _gene_align_id              => $rowhash->{gene_align_id},
         _method_link_species_set_id => $rowhash->{method_link_species_set_id},
+        _species_tree_root_id       => $rowhash->{species_tree_root_id},
         _stable_id                  => $rowhash->{stable_id},
         _version                    => $rowhash->{version},
         _ref_root_id                => $rowhash->{ref_root_id},

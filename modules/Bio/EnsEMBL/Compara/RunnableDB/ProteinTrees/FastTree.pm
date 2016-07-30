@@ -1,7 +1,8 @@
 
 =head1 LICENSE
 
-Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+Copyright [2016] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -49,12 +50,6 @@ sub param_defaults {
              'input_clusterset_id'        => 'default',
              'binarize'                   => 1,
     };
-}
-
-sub run {
-    my $self = shift;
-    $self->cleanup_worker_temp_directory;
-    $self->run_generic_command;
 }
 
 1;

@@ -1,6 +1,7 @@
 =head1 LICENSE
 
-Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+Copyright [2016] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -328,12 +329,6 @@ sub fetch_all_by_dbID_list {
 	};
 	$self->_fetch_all_ConstrainedElements_by_dbID($sql, \@constrained_elements, $constrained_element_ids);
 	return \@constrained_elements;
-}
-
-sub fetch_all_by_dbID {     ## DEPRECATED
-    my $self = shift;
-    deprecate('ConstrainedElementAdaptor::fetch_all_by_dbID() is deprecated and will be removed in e86. Use fetch_all_by_dbID_list() instead.');
-    return $self->fetch_all_by_dbID_list(@_);
 }
 
 =head2 fetch_by_dbID

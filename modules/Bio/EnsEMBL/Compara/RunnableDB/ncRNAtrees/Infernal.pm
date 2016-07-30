@@ -1,6 +1,7 @@
 =head1 LICENSE
 
-Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+Copyright [2016] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -107,7 +108,6 @@ sub fetch_input {
     my $nc_tree_id = $self->param_required('gene_tree_id');
 
     my $nc_tree = $self->compara_dba->get_GeneTreeAdaptor->fetch_by_dbID($nc_tree_id) or die "Could not fetch nc_tree with id=$nc_tree_id\n";
-    $nc_tree->preload();
     $self->param('gene_tree', $nc_tree);
 
     my %model_id_hash = ();
@@ -176,10 +176,6 @@ sub write_output {
 
     $self->dataflow_output_id ( {
                                  'gene_tree_id' => $gene_tree_id,
-                                },3
-                              );
-    $self->dataflow_output_id ( {
-                                 'gene_tree_id' => $gene_tree_id,
                                  'alignment_id' => $self->param('alignment_id'),
                                 },1
                               );
@@ -244,7 +240,7 @@ sub run_infernal {
 
   my $cmalign_exe = $self->require_executable('cmalign_exe');
 
-  my $model_id = $self->param('gene_tree')->get_tagvalue('clustering_id') or $self->throw("'clustering_id' tag for this tree is not defined");
+  my $model_id = $self->param('gene_tree')->get_value_for_tag('model_id') or $self->throw("'model_id' tag for this tree is not defined");
   $self->param('model_id', $model_id );
 
   print STDERR "Model_id : $model_id\n" if ($self->debug);
@@ -267,10 +263,7 @@ sub run_infernal {
   $cmd .= " " . $self->param('input_fasta');
 
 #  $DB::single=1;1;
-  my $command = $self->run_command($cmd);
-  if ($command->exit_code) {
-      $self->throw("error running infernal, $!\n");
-  }
+  $self->run_command($cmd, { die_on_failure => 1 });
 
   # cmbuild --refine the alignment
   ######################
@@ -299,10 +292,7 @@ sub run_infernal {
   $cmd .= " -F $refined_profile";
   $cmd .= " $stk_output";
 
-  $command = $self->run_command($cmd);
-  if ($command->exit_code) {
-      $self->throw("error running cmbuild refine, $!\n");
-  }
+  $self->run_command($cmd, { die_on_failure => 1 });
 
   $self->param('stk_output', $refined_stk_output);
   $self->param('refined_profile', $refined_profile);
@@ -526,8 +516,6 @@ sub _store_aln_tags {
     print STDERR "Storing Alignment tags...\n" if ($self->debug());
     my $sa = $tree->get_SimpleAlign;
     $DB::single=1;1;
-    # Model id
-    $tree->store_tag("model_id",$self->param('model_id') );
 
     # Alignment percent identity.
     my $aln_pi = $sa->average_percentage_identity;

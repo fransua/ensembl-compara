@@ -1,6 +1,7 @@
 =head1 LICENSE
 
-Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+Copyright [2016] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -62,8 +63,10 @@ package Bio::EnsEMBL::Compara::PipeConfig::EPO_pt1_conf;
 
 use strict;
 use warnings;
+
+use Bio::EnsEMBL::Hive::Version 2.4;
+
 use base ('Bio::EnsEMBL::Compara::PipeConfig::ComparaGeneric_conf');
-use Data::Dumper;
 
 sub default_options {
     my ($self) = @_;
@@ -225,7 +228,7 @@ return [
  -module		=> 'Bio::EnsEMBL::Compara::Production::EPOanchors::FindPairwiseOverlaps',
  -flow_into	=> {
 		2 => [ 'pecan' ],
-		3 => [ 'mysql:////dnafrag_region?insertion_method=INSERT_IGNORE' ],
+		3 => [ '?table_name=dnafrag_region&insertion_method=INSERT_IGNORE' ],
 	},
  -failed_job_tolerance => 5, # allowing 5% of job failures
  -hive_capacity => 50,

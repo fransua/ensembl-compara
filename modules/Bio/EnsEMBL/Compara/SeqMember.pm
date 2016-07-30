@@ -1,6 +1,7 @@
 =head1 LICENSE
 
-Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+Copyright [2016] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -132,8 +133,11 @@ sub copy {
   
   my $mycopy = $self->SUPER::copy(@_);
   
-  $self->sequence;  # To make sure the sequence is loaded
-  # And now we can copy all the sequence keys
+  # pre_sec_struct_tree, genomic_alignment and sec_struct_model_tree call deep_copy() on trees that don't have sequences yet
+  # This means that $self->sequence() below will actually connect to the database
+  # Why ??
+  $self->sequence;  # To make sure the sequence is loaded because the new copy doesn't have an adaptor
+  # Here we copy all the sequence keys, i.e. the sequences that $self already had
   foreach my $key (keys %$self) {
       if (($key =~ /^_seq_/) or ($key =~ /^_sequence/)) {
           $mycopy->{$key} = $self->{$key};
@@ -200,21 +204,24 @@ sub new_from_Transcript {
         }
     }
 
-    my $seq_member = Bio::EnsEMBL::Compara::SeqMember->new(
-        -STABLE_ID => $stable_id,
-        -DISPLAY_LABEL => ($transcript->display_xref ? $transcript->display_xref->display_id : undef),
-        -DNAFRAG_START => $start,
-        -DNAFRAG_END => $end,
-        -DNAFRAG_STRAND => $transcript->seq_region_strand,
+    my $seq_member = Bio::EnsEMBL::Compara::SeqMember->new_fast({
+        _stable_id => $stable_id,
+        _version => $transcript->version,
+        _display_label => ($transcript->display_xref ? $transcript->display_xref->display_id : undef),
+        dnafrag_start => $start,
+        dnafrag_end => $end,
+        dnafrag_strand => $transcript->seq_region_strand,
 
-        -DNAFRAG => $genome_db->adaptor->db->get_DnaFragAdaptor->fetch_by_GenomeDB_and_name($genome_db, $transcript->seq_region_name),
-        -GENOME_DB_ID => $genome_db->dbID,
-        -TAXON_ID => $genome_db->taxon_id,
+        dnafrag => $genome_db->adaptor->db->get_DnaFragAdaptor->fetch_by_GenomeDB_and_name($genome_db, $transcript->seq_region_name),
+        _genome_db => $genome_db,
+        _genome_db_id => $genome_db->dbID,
+        _taxon_id => $genome_db->taxon_id,
 
-        -SOURCE_NAME => ($translate ? 'ENSEMBLPEP' : 'ENSEMBLTRANS'),
-        -SEQUENCE => $seq_string,
-        -DESCRIPTION => $transcript->description,
-    );
+        _source_name => ($translate ? 'ENSEMBLPEP' : 'ENSEMBLTRANS'),
+        _sequence => $seq_string,
+        _seq_length => length($seq_string),
+        _description => $transcript->description,
+    });
     $seq_member->{core_transcript} = $transcript;
     return $seq_member;
 }
@@ -359,7 +366,8 @@ sub _prepare_exon_sequences {
         my $i = 0;
         $self->{_sequence_exon_cased} = join('', map {$i++%2 ? lc($_) : $_} split( /[boj]/, $exon_bounded_seq));
 
-    } else {
+    # If the SeqMember comes from a fasta file there is no Transcript
+    } elsif ($self->source_name =~ /^ENSEMBL/) {
 
         my $sequence = $self->sequence;
         my $transcript = $self->get_Transcript;

@@ -1,6 +1,7 @@
 =head1 LICENSE
 
-Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+Copyright [2016] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -43,8 +44,8 @@ sub run {
 	my $self_gab_adaptor = $self_dba->get_adaptor("GenomicAlignBlock");
 	my @hits = ();
 	my $gab = $self_gab_adaptor->fetch_by_dbID($gab_id);
-	my $stk_file = "/tmp/" . $ENV{USER} . "_$gab_id.stk";
-	my $hmm_file = "/tmp/" . $ENV{USER} . "_$gab_id.hmm";
+	my $stk_file = $self->worker_temp_directory."$gab_id.stk";
+	my $hmm_file = $self->worker_temp_directory."$gab_id.hmm";
 
 	$self_dba->dbc->disconnect_when_inactive(1); 
 
@@ -66,7 +67,7 @@ sub run {
 	if ($self->param('md5sum')) {
 	    #Copy genome_seq to local disk if it doesn't already exist
 	    my $name = basename($self->param('target_genome')->{"genome_seq"});
-	    my $tmp_file = "/tmp/" . $ENV{USER} . "_" . $self->param('target_genome')->{name} . "_" . $name;
+	    my $tmp_file = $self->worker_temp_directory.$self->param('target_genome')->{name} . "_" . $name;
 	    
 	    if (-e $tmp_file) {
 		print "$tmp_file already exists\n";

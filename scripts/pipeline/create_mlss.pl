@@ -1,5 +1,6 @@
 #!/usr/bin/env perl
-# Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [2016] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -53,9 +54,13 @@ perl create_mlss.pl
     [--reg_conf file]
     [--f] force
     [--pw] pairwise
+    [--ref_species] when using --pw, only produce pairs with ref present
     [--sg] singleton
     [--use_genomedb_ids] use GenomeDB IDs in MLSS name than truncated GenomeDB names
     [--species_set_name species_set_name] 
+    [--taxon_id taxon_id]
+    [--only_with_karyotype 0/1]
+    [--only_high_coverage 0/1]
 
 =head1 OPTIONS
 
@@ -79,71 +84,81 @@ The Bio::EnsEMBL::Registry configuration file. If none given,
 the one set in ENSEMBL_REGISTRY will be used if defined, if not
 ~/.ensembl_init will be used.
 
-=item B<--compara compara_db_name_or_alias>
+=item B<[--compara compara_db_name_or_alias]>
 
 The compara database to update. You can use either the original name or any of the
 aliases given in the registry_configuration_file. DEFAULT VALUE: compara_master
 
-=item B<--method_link_type method_link_type>
+=item B<[--method_link_type method_link_type]>
 
 It should be an existing method_link_type. E.g. TRANSLATED_BLAT, BLASTZ_NET, MLAGAN...
 
-=item B<--genome_db_id>
+=item B<[--genome_db_id]>
 
 This should be a list of genome_db_ids. You can separate them by commas or specify them in
 as many --genome_db_id options as you want
 
-=item B<--name>
+=item B<[--name name]>
 
 The name for this MethodLinkSpeciesSet
 
-=item B<--source>
+=item B<[--source source]>
 
 The source for this MethodLinkSpeciesSet
 
-=item B<--url>
+=item B<[--url url]>
 
 The url for this MethodLinkSpeciesSet
 
-=item B<--pw>
+=item B<[--pw]>
 
 From a list of genome_db_id 1,2,3,4, it will create all possible pairwise combinaison 
 i.e. [1,2] [1,3] [1,4] [2,3] [2,4] [3,4] for a given  method link.
 
-=item B<--sg>
+=item B<[--sg]>
 
 From a list of genome_db_id 1,2,3,4, it will create a mlss for each single genome_db_id 
 in the list i.e. [1] [2] [3] [4] for a given  method link.
 
-=item B<--use_genomedb_ids>
+=item B<[--use_genomedb_ids]>
 
 Force the names of the create MLSS to use the Genome DB ID rather than the truncated form
 of its name (which is normally of the form H.sap).
 
-=item B<--species_set_name>
+=item B<[--species_set_name species_set_name]>
 
 Set the name for this species_set.
 
-=item B<--collection>
+=item B<[--collection]>
 
 Use all the species in that collection (more practical than giving a long list of genome_db_ids
-
-=item B<Examples>
-
-perl create_mlss.pl
-
-perl create_mlss.pl --method_link_type BLASTZ_NET --genome_db_id 1,2
-
-perl create_mlss.pl --method_link_type PECAN --genome_db_id 1,2,3,4 --name "4 species PECAN" --source "ensembl" --url "" --species_set_name "mammals"
 
 =item B<[--release]>
 
 Mark all the objects that are created / used (GenomeDB, SpeciesSet, MethodLinkSpeciesSet)
 as "current", i.e. with a first_release and an undefined last_release
 
+=item B<[--taxon_id taxon_id]>
+
+The taxon_id of the clade to consider. Used to automatically cre4te a species-set
+
+=item B<[--only_with_karyotype 0/1]>
+
+The list of genomes will be restricted to those with a karyotype
+
+=item B<[--only_high_coverage 0/1]>
+
+The list of genomes will be restricted to those that are marked as high-coverage
+
 =back
 
-=head1 INTERNAL METHODS
+=head2 EXAMPLES
+
+perl create_mlss.pl
+
+perl create_mlss.pl --method_link_type BLASTZ_NET --genome_db_id 1,2
+
+perl create_mlss.pl --method_link_type PECAN --genome_db_id 1,2,3,4 --name "4 species PECAN" --source "ensembl" --url "" --species_set_name "mammals"
 
 =cut
 
@@ -173,6 +188,10 @@ my $species_set_name;
 my $collection;
 my $method_link_class;
 my $release;
+my $taxon_id;
+my $only_with_karyotype;
+my $only_high_coverage;
+my $ref_name;
 
 GetOptions(
     "help" => \$help,
@@ -187,10 +206,14 @@ GetOptions(
     "force|f" => \$force,
     "pw" => \$pairwise,
     "sg" => \$singleton,
+    "ref_species=s" => \$ref_name,
     "use_genomedb_ids" => \$use_genomedb_ids,
     "species_set_name|species_set_tag=s" => \$species_set_name,
     "collection=s" => \$collection,
     'release' => \$release,
+    'taxon_id=i' => \$taxon_id,
+    'only_with_karyotype' => \$only_with_karyotype,
+    'only_high_coverage' => \$only_high_coverage,
   );
 
 if ($pairwise && $singleton) {
@@ -233,6 +256,14 @@ my $mlssa = $compara_dba->get_MethodLinkSpeciesSetAdaptor();
 ##
 #################################################
 
+# It doesn't matter if @input_genome_db_ids is empty
+my @input_genome_dbs;
+foreach my $this_genome_db_id (@input_genome_db_ids) {
+    my $this_genome_db = $gdba->fetch_by_dbID($this_genome_db_id)
+                        || throw("Cannot get any Bio::EnsEMBL::Compara::GenomeDB using dbID #$this_genome_db_id");
+    push @input_genome_dbs, $this_genome_db;
+}
+
 #################################################
 ## Set values interactively if needed
 if (!$method_link_type) {
@@ -259,7 +290,7 @@ if ($collection) {
   # For ENSEMBL_ORTHOLOGUES or ENSEMBL_PARALOGUES we need to exclude the
   # component genome_dbs because they are only temporary for production
   my $gdbs = ($pairwise or $singleton) ? [grep {not $_->genome_component}  @{$ss->genome_dbs}] : $ss->genome_dbs;
-  @input_genome_db_ids = map {$_->dbID} @$gdbs;
+  @input_genome_dbs = @$gdbs;
 }
 
 # All the pairwise / singleton will share the same URL. Set it once here
@@ -280,6 +311,19 @@ if (!$source) {
   }
 }
 
+if ($taxon_id) {
+    my %good_gdb_id = map {$_->dbID => 1} @{ $gdba->fetch_all_by_ancestral_taxon_id($taxon_id) };
+    @input_genome_dbs = grep {$good_gdb_id{$_->dbID}} @input_genome_dbs;
+}
+
+if ($only_with_karyotype) {
+    @input_genome_dbs = grep {$_->has_karyotype} @input_genome_dbs;
+}
+
+if ($only_high_coverage) {
+    @input_genome_dbs = grep {$_->is_high_coverage} @input_genome_dbs;
+}
+
 if ($pairwise) {
 
   # Only makes sense for GenomicAlignBlock.pairwise_alignment,
@@ -288,9 +332,26 @@ if ($pairwise) {
   my %valid_classes = map {$_ => 1} qw(GenomicAlignBlock.pairwise_alignment SyntenyRegion.synteny Homology.homology);
   die "The --pw option only makes sense for these method_link_classes, not for $this_class.\n" unless $valid_classes{$this_class};
 
-  while (my $gdb_id1 = shift @input_genome_db_ids) {
-    foreach my $gdb_id2 (@input_genome_db_ids) {
-      create_mlss( [$gdb_id1, $gdb_id2] );
+  if ( $ref_name ){
+    # find gdb object
+    my $ref_gdb;
+    foreach my $gdb ( @input_genome_dbs ){
+      if ( $gdb->name eq $ref_name ){
+        $ref_gdb = $gdb;
+        last;
+      }
+    }
+    die "Cannot find reference genome $ref_name in input genomes" unless ( $ref_gdb );
+    foreach my $gdb ( @input_genome_dbs ) {
+      create_mlss( [$ref_gdb, $gdb] ) unless ( $gdb->dbID == $ref_gdb->dbID );
+    }
+
+  }
+  else {
+    while (my $gdb1 = shift @input_genome_dbs) {
+      foreach my $gdb2 (@input_genome_dbs) {
+        create_mlss( [$gdb1, $gdb2] );
+      }
     }
   }
 
@@ -302,33 +363,22 @@ if ($pairwise) {
   my %valid_classes = map {$_ => 1} qw(GenomicAlignBlock.pairwise_alignment SyntenyRegion.synteny Homology.homology);
   die "The --sg option only makes sense for these method_link_classes, not for $this_class.\n" unless $valid_classes{$this_class};
 
-  foreach my $gdb_id (@input_genome_db_ids) {
-    create_mlss( [$gdb_id] );
+  foreach my $gdb (@input_genome_dbs) {
+    create_mlss( [$gdb] );
   }
 
 } else {
 
-  if (!@input_genome_db_ids) {
-    my @genome_dbs = ask_for_genome_dbs($compara_dba);
-    @input_genome_db_ids = map {$_->dbID} @genome_dbs;
+  if (!@input_genome_dbs) {
+    @input_genome_dbs = ask_for_genome_dbs($compara_dba);
   }
 
-  create_mlss( \@input_genome_db_ids, $name, $species_set_name || $collection );
+  create_mlss( \@input_genome_dbs, $name, $species_set_name || $collection );
 }
 
 
 sub create_mlss {
-  my ($genome_db_ids, $desired_mlss_name, $desired_ss_name) = @_;
-
-  ## Get the Bio::EnsEMBL::Compara::GenomeDB
-  my $all_genome_dbs;
-  foreach my $this_genome_db_id (@{$genome_db_ids}) {
-    my $this_genome_db = $gdba->fetch_by_dbID($this_genome_db_id);
-    if (!UNIVERSAL::isa($this_genome_db, "Bio::EnsEMBL::Compara::GenomeDB")) {
-      throw("Cannot get any Bio::EnsEMBL::Compara::GenomeDB using dbID #$this_genome_db_id");
-    }
-    push(@$all_genome_dbs, $this_genome_db);
-  }
+  my ($all_genome_dbs, $desired_mlss_name, $desired_ss_name) = @_;
 
   # Simple check to allow running create_mlss for homoeologues on the whole
   # collection
@@ -338,7 +388,7 @@ sub create_mlss {
   }
 
   ## Check if the MethodLinkSpeciesSet already exists
-  my $mlss = $mlssa->fetch_by_method_link_type_genome_db_ids($method_link_type, $genome_db_ids, 1);
+  my $mlss = $mlssa->fetch_by_method_link_type_GenomeDBs($method_link_type, $all_genome_dbs);
   if ($mlss) {
     print "This MethodLinkSpeciesSet already exists in the database!\n  $method_link_type: ",
         join(" - ", map {$_->name."(".$_->assembly.")"} @{$mlss->species_set_obj->genome_dbs}), "\n";
@@ -360,10 +410,9 @@ sub create_mlss {
     if (!$ss_name) {
       my @individual_names;
       if ($use_genomedb_ids) {
-        @individual_names = @{$genome_db_ids};
+        @individual_names = map {$_->dbID} @{$all_genome_dbs};
       } else {
-        foreach my $this_genome_db_id (@{$genome_db_ids}) {
-          my $gdb = $gdba->fetch_by_dbID($this_genome_db_id) || die( "Cannot fetch_by_dbID genome_db $this_genome_db_id" );
+        foreach my $gdb (@{$all_genome_dbs}) {
           my $species_name = $gdb->name;
           $species_name =~ s/\b(\w)/\U$1/g;
           $species_name =~ s/(\S)\S+\_/$1\./;
@@ -429,6 +478,7 @@ sub create_mlss {
   $helper->transaction( -CALLBACK => sub {
     $mlssa->store($new_mlss);
     $mlssa->make_object_current($new_mlss) if $release;
+    $new_mlss->store_tag('taxon_id', $taxon_id) if $taxon_id;
   } );
 
   print "  MethodLinkSpeciesSet has dbID: ", $new_mlss->dbID, "\n";
@@ -487,7 +537,10 @@ sub ask_for_genome_dbs {
 
   return undef if (!$compara_dba);
 
-  my $all_genome_dbs = $compara_dba->get_GenomeDBAdaptor->fetch_all();
+  my $all_genome_dbs = $taxon_id ? $compara_dba->get_GenomeDBAdaptor->fetch_all_by_ancestral_taxon_id($taxon_id) : $compara_dba->get_GenomeDBAdaptor->fetch_all();
+     $all_genome_dbs = [grep {$_->has_karyotype}    @$all_genome_dbs] if $only_with_karyotype;
+     $all_genome_dbs = [grep {$_->is_high_coverage} @$all_genome_dbs] if $only_high_coverage;
+
   my $answer;
   my $genome_dbs_in = {};
   my $genome_dbs_out = {map {$_->dbID, $_} @{$all_genome_dbs}};

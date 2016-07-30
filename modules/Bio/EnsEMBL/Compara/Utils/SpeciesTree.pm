@@ -1,6 +1,7 @@
 =head1 LICENSE
 
-Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+Copyright [2016] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -157,7 +158,6 @@ sub create_species_tree {
     }
 
         # Deleting subnodes down to a given node:
-    @subnodes = $root->get_all_subnodes;
     foreach my $extra_taxon (@$multifurcation_deletes_all_subnodes) {
         my $taxon = $taxon_adaptor->fetch_node_by_taxon_id($extra_taxon);
         my $taxon_name = $taxon->name;
@@ -172,6 +172,12 @@ sub create_species_tree {
             $node->disavow_parent;
         }
     }
+
+    $taxon_adaptor->_id_cache->clear_cache();
+
+    # Fix the distance_to_parent fields (NCBITaxonAdaptor sets them to 0.1)
+    $root->distance_to_parent(0);                           # NULL would be more accurate
+    $_->distance_to_parent(1) for $root->get_all_subnodes;  # Convention
 
     return $root if $return_ncbi_tree;
 
@@ -255,10 +261,11 @@ sub get_timetree_estimate {
     while (my $child1 = shift @children) {
         foreach my $child2 (@children) {
             my $url = sprintf($url_template, uri_escape($child1->get_all_leaves()->[0]->node_name), uri_escape($child2->get_all_leaves()->[0]->node_name));
+            $last_page = $url;
             my $timetree_page = get($url);
+            next unless $timetree_page;
             $timetree_page =~ /<h1 style="margin-bottom: 0px;">(.*)<\/h1> Million Years Ago/;
             return $1 if $1;
-            $last_page = $url;
         }
     }
     warn sprintf("Could not get a valid answer from timetree.org for '%s' (see %s).\n", $node->name, $last_page);

@@ -1,6 +1,7 @@
 =head1 LICENSE
 
-Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+Copyright [2016] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -70,7 +71,6 @@ sub new_from_SpeciesTree {
     $cafeTree->method_link_species_set_id($speciesTree->method_link_species_set_id);
     $cafeTree->label($speciesTree->label);
     $cafeTree->root_id($speciesTree->root_id);
-    $cafeTree->species_tree($speciesTree->species_tree);
 
     my $cafe_tree_root = $speciesTree->root->cast('Bio::EnsEMBL::Compara::CAFEGeneFamilyNode', $cafeGeneFamilyNode_Adaptor);
     $cafeTree->root($cafe_tree_root);

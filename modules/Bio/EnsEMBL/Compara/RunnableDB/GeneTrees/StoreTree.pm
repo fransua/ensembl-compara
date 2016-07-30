@@ -1,6 +1,7 @@
 =head1 LICENSE
 
-Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+Copyright [2016] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -31,6 +32,38 @@ use Bio::EnsEMBL::Compara::Graph::NewickParser;
 use Bio::EnsEMBL::Compara::RunnableDB::GeneTrees::SqlHealthChecks;
 
 use base ('Bio::EnsEMBL::Compara::RunnableDB::BaseRunnable');
+
+
+=head2 _write_temp_tree_file
+
+    Creates a temporary file in the worker temp directory, with the given content
+
+=cut
+
+sub _write_temp_tree_file {
+    my ($self, $tree_name, $tree_content) = @_;
+
+    my $filename = $self->worker_temp_directory . $tree_name;
+    open my $fh, ">", $filename or die "Could not open '$filename' for writing : $!";
+    print $fh $tree_content;
+    close $fh;
+
+    return $filename;
+}
+
+
+=head2 get_species_tree_file
+
+Creates a file in the worker temp directory with the species tree.
+The species-tree string is loaded by the virtual method _load_species_tree_string_from_db()
+
+=cut
+
+sub get_species_tree_file {
+    my ($self, $filename) = @_;
+
+    return $self->_write_temp_tree_file($filename // 'spec_tax.nh', $self->_load_species_tree_string_from_db());
+}
 
 
 # Should we define hidden_genes here ?
@@ -175,6 +208,8 @@ sub store_genetree
     printf("PHYML::store_genetree\n") if($self->debug);
     my $treenode_adaptor = $tree->adaptor->db->get_GeneTreeNodeAdaptor;
 
+    $tree->species_tree( $self->param('species_tree') );
+    $tree->species_tree_root_id( $self->param('species_tree')->root_id );
     $tree->root->build_leftright_indexing(1);
     $self->call_within_transaction(sub {
         $tree->adaptor->store($tree);
@@ -217,9 +252,9 @@ sub interpret_treebest_tags
     if (not $node->is_leaf) {
         if ($treebest_tag->has_tag('gene_split')) {
             $node_type = 'gene_split';
-        } elsif ($treebest_tag->get_tagvalue("DD", 0)) {
+        } elsif ($treebest_tag->get_value_for_tag("DD", 0)) {
             $node_type = 'dubious';
-        } elsif ($treebest_tag->get_tagvalue('Duplication', '') eq '1') {
+        } elsif ($treebest_tag->get_value_for_tag('Duplication', '') eq '1') {
             $node_type = 'duplication';
         } else {
             $node_type = 'speciation';
@@ -229,7 +264,7 @@ sub interpret_treebest_tags
     }
 
     if ($treebest_tag->has_tag("E")) {
-        my $n_lost = $treebest_tag->get_tagvalue("E");
+        my $n_lost = $treebest_tag->get_value_for_tag("E");
         $n_lost =~ s/.{2}//;        # get rid of the initial $-
         my @lost_taxa = split('-', $n_lost);
         print "lost_species_tree_node_id : $n_lost\n" if ($self->debug);
@@ -238,7 +273,7 @@ sub interpret_treebest_tags
     return if $node->is_leaf;
 
     if ($treebest_tag->has_tag('T') and $self->param('store_tree_support')) {
-        my $binary_support = $treebest_tag->get_tagvalue('T');
+        my $binary_support = $treebest_tag->get_value_for_tag('T');
         my $i = 0;
         my @tree_support = ();
         while ($binary_support) {
@@ -256,7 +291,7 @@ sub interpret_treebest_tags
     foreach my $tag (keys %mapped_tags) {
         my $db_tag = $mapped_tags{$tag};
         if ($treebest_tag->has_tag($tag)) {
-            my $value = $treebest_tag->get_tagvalue($tag);
+            my $value = $treebest_tag->get_value_for_tag($tag);
             print "$tag as $db_tag: $value\n" if ($self->debug);
             $node->add_tag($db_tag, $value);
         }
@@ -320,8 +355,8 @@ sub parse_newick_into_tree {
         $new_internal_node->add_child($othernode);
         $new_internal_node->add_child($split_gene_leaf);
         $new_internal_node->add_tag('gene_split', 1);
-        $new_internal_node->add_tag('S', $othernode->get_tagvalue('S'));
-        $split_gene_leaf->add_tag('S', $othernode->get_tagvalue('S'));
+        $new_internal_node->add_tag('S', $othernode->get_value_for_tag('S'));
+        $split_gene_leaf->add_tag('S', $othernode->get_value_for_tag('S'));
         $new_internal_node->print_tree(10) if $self->debug;
       }
       print  "Tree after split genes insertions:\n";
@@ -406,7 +441,7 @@ sub store_tree_tags {
     my $num_dups = 0;
     my $num_specs = 0;
     foreach my $node (@nodes) {
-        if ($node->has_tag('node_type') and ($node->get_tagvalue('node_type') ne 'speciation')) {
+        if ($node->has_tag('node_type') and ($node->get_value_for_tag('node_type') ne 'speciation')) {
             $num_dups++;
         } else {
             $num_specs++;
@@ -433,7 +468,9 @@ sub store_tree_into_clusterset {
     $clusterset_leaf->no_autoload_children();
     $clusterset->root->add_child($clusterset_leaf);
     $clusterset_leaf->add_child($newtree->root);
+    $clusterset_leaf->tree($clusterset);
     $newtree->clusterset_id($clusterset->clusterset_id);
+    $newtree->root->{'_different_tree_object'} = 1;
 
     $self->call_within_transaction(sub {
         $clusterset->adaptor->db->get_GeneTreeNodeAdaptor->store_nodes_rec($clusterset_leaf);
@@ -470,8 +507,6 @@ sub fetch_or_create_other_tree {
         }
     }
 
-    $other_trees->{$clusterset->clusterset_id}->preload();
-
     return $other_trees->{$clusterset->clusterset_id};
 }
 
@@ -482,6 +517,7 @@ sub store_alternative_tree {
         $self->throw("The clusterset_id '$clusterset_id' is not defined. Cannot store the alternative tree");
         return;
     }
+    $clusterset->root('no_preload');    # We're not returning $clusterset, and we know that the method calls below don't need a preloaded tree
     my $newtree = $self->fetch_or_create_other_tree($clusterset, $ref_tree, $remove_previous_tree);
     return undef unless $self->parse_newick_into_tree($newick, $newtree, $ref_support);
     $self->store_genetree($newtree);

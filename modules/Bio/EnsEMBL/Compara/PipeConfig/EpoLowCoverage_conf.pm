@@ -1,6 +1,7 @@
 =head1 LICENSE
 
-Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+Copyright [2016] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -22,6 +23,9 @@ package Bio::EnsEMBL::Compara::PipeConfig::EpoLowCoverage_conf;
 
 use strict;
 use warnings;
+
+use Bio::EnsEMBL::Hive::Version 2.4;
+
 use base ('Bio::EnsEMBL::Compara::PipeConfig::ComparaGeneric_conf');  # All Hive databases configuration files should inherit from HiveGeneric, directly or indirectly
 
 sub default_options {
@@ -248,7 +252,7 @@ sub pipeline_analyses {
 			       },
 		-flow_into => {
                                '2->A' => { 'load_genomedb' => { 'master_dbID' => '#genome_db_id#', 'locator' => '#locator#' }, },
-			       'A->1' => [ 'load_genomedb_funnel' ],    # backbone
+			       'A->1' => [ 'make_species_tree' ],    # backbone
 			      },
 		-rc_name => '100Mb',
 	    },
@@ -262,27 +266,16 @@ sub pipeline_analyses {
 		-rc_name => '100Mb',
 	    },
 
-	    {   -logic_name => 'load_genomedb_funnel',
-		-module     => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
-                -meadow_type=> 'LOCAL',
-		-flow_into => {
-                    '1->A' => {
-                               'make_species_tree' => [
-                                                       {'blength_tree_file' => $self->o('species_tree_file'), 'newick_format' => 'simple' }, #species_tree
-                                                       ],
-                               },
-
-		    'A->1' => [ 'create_default_pairwise_mlss'],
-		},
-		-rc_name => '100Mb',
-        },
 # -------------------------------------------------------------[Load species tree]--------------------------------------------------------
 	    {   -logic_name    => 'make_species_tree',
 		-module        => 'Bio::EnsEMBL::Compara::RunnableDB::MakeSpeciesTree',
 		-parameters    => { 
 				   'mlss_id' => $self->o('low_epo_mlss_id'),
+                                   'blength_tree_file' => $self->o('species_tree_file'),
+                                   'newick_format' => 'simple',
 				  },
 		-rc_name => '100Mb',
+		-flow_into => [ 'create_default_pairwise_mlss'],
 	    },
 
 # -----------------------------------[Create a list of pairwise mlss found in the default compara database]-------------------------------
@@ -294,11 +287,10 @@ sub pipeline_analyses {
 				'pairwise_default_location' => $self->o('pairwise_default_location'),
 				'base_location' => $self->o('epo_db'),
 				'reference_species' => $self->o('ref_species'),
-				'fan_branch_code' => 3,
 			       },
 		-flow_into => {
 			       1 => [ 'import_alignment' ],
-			       3 => [ 'mysql:////pipeline_wide_parameters' ],
+			       2 => [ '?table_name=pipeline_wide_parameters' ],
 			      },
 		-rc_name => '100Mb',
 	    },
@@ -330,7 +322,6 @@ sub pipeline_analyses {
 		-module     => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
 		-parameters => {
 				'inputquery' => 'SELECT genomic_align_block_id FROM genomic_align ga LEFT JOIN dnafrag USING (dnafrag_id) WHERE method_link_species_set_id=' . $self->o('high_epo_mlss_id') . ' AND coord_system_name != "ancestralsegment" GROUP BY genomic_align_block_id',
-				'fan_branch_code' => 2,
 			       },
 		-flow_into => {
 			       '2->A' => [ 'low_coverage_genome_alignment' ],
@@ -421,7 +412,6 @@ sub pipeline_analyses {
 		-module     => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
 		-parameters => {
 				'inputquery' => 'SELECT root_id FROM genomic_align_tree WHERE parent_id = 0',
-				'fan_branch_code' => 2,
 			       },
 		-flow_into => {
 			       '2->A' => [ 'set_neighbour_nodes' ],

@@ -1,6 +1,7 @@
 =head1 LICENSE
 
-Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+Copyright [2016] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -112,7 +113,7 @@ sub default_options {
         #'HMMer_classify_capacity' => 100,
 
         # used by the StableIdMapper as the reference:
-        #'prev_rel_db' => 'mysql://ensro@ens-livemirror/ensembl_compara_#expr( #release# - 1)expr#',
+        #'prev_rel_db' => 'mysql://ensro@ens-livemirror/ensembl_compara_#expr( #ensembl_release# - 1)expr#',
 
         # used by the StableIdMapper as the location of the master 'mapping_session' table:
         #'master_db' => 'mysql://ensadmin:'.$self->o('password').'@compara1/mm14_ensembl_compara_master',
@@ -316,7 +317,7 @@ sub pipeline_analyses {
             },
             -flow_into => {
                 '2->A' => [ 'download_and_chunk_uniprot' ],
-                'A->1' => [ 'register_mlss' ],
+                'A->1' => [ 'snapshot_after_load_uniprot' ],
             },
             -rc_name => 'urgent',
         },
@@ -340,11 +341,6 @@ sub pipeline_analyses {
             -analysis_capacity => 5,
             -batch_size    => 100,
             -rc_name => '2GigMem',
-        },
-
-        {   -logic_name => 'register_mlss',
-            -module     => 'Bio::EnsEMBL::Compara::RunnableDB::RegisterMLSS',
-            -flow_into  => [ 'snapshot_after_load_uniprot' ],
         },
 
         {   -logic_name => 'snapshot_after_load_uniprot',
@@ -403,7 +399,7 @@ sub pipeline_analyses {
             -hive_capacity => $self->o('blast_capacity'),
             -max_retry_count => 6,
             -flow_into => {
-                3 => [ ':////mcl_sparse_matrix?insertion_method=REPLACE' ],
+                3 => [ '?table_name=mcl_sparse_matrix&insertion_method=REPLACE' ],
                 -1 => 'blast_himem',
                 -2 => 'break_batch',
             },
@@ -417,7 +413,7 @@ sub pipeline_analyses {
             },
             -hive_capacity => $self->o('blast_capacity'),
             -flow_into => {
-                3 => [ ':////mcl_sparse_matrix?insertion_method=REPLACE' ],
+                3 => [ '?table_name=mcl_sparse_matrix&insertion_method=REPLACE' ],
             },
             -rc_name => 'LongBlastHM',
         },

@@ -1,6 +1,7 @@
 =head1 LICENSE
 
-Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+Copyright [2016] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -135,7 +136,6 @@ sub calc_genetic_distance {
   #print("use codeml to get genetic distance of homology\n");
   print $homology->toString if ($self->debug);
   
-  $homology->_load_all_missing_sequences();
   my $aln = $homology->get_SimpleAlign(-seq_type => 'cds', -ID_TYPE => 'member');
 
   my $codeml = new Bio::Tools::Run::Phylo::PAML::Codeml();
@@ -161,12 +161,11 @@ sub calc_genetic_distance {
           if (grep {$_->taxon_id == 7742} @{$member->taxon->get_all_ancestors}) {
               # 1:mamalian mt
               $codeml->set_parameter("icode", 1);
-              last;
           } else {
               # 4:invertebrate mt
               $codeml->set_parameter("icode", 4);
-              last;
           }
+          last;
       } elsif ($member->dnafrag->dna_type eq 'PT') {
       }
   }

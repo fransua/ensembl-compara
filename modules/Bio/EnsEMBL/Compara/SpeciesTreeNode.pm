@@ -1,6 +1,7 @@
 =head1 LICENSE
 
-Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+Copyright [2016] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -55,7 +56,14 @@ use base ('Bio::EnsEMBL::Compara::NestedSet');
 sub _complete_cast_node {
     my ($self, $orig) = @_;
     $self->genome_db_id($orig->{_gdb_id_for_cast}) if exists $orig->{_gdb_id_for_cast};
-    $self->taxon_id($orig->taxon_id);
+    if ($orig->isa('Bio::EnsEMBL::Compara::NCBITaxon')) {
+        $self->taxon($orig);
+    } elsif ($orig->{'_taxon'}) {
+        $self->taxon($orig->{'_taxon'});
+    } else {
+        $self->taxon($orig->{'_taxon'}) if $orig->{'_taxon'};
+        $self->taxon_id($orig->taxon_id);
+    }
     $self->node_name($orig->name);
 }
 
@@ -99,11 +107,12 @@ sub taxon {
         $self->{'_taxon_id'} = $taxon->dbID;
         $self->{'_taxon'} = $taxon;
 
-    } elsif (defined $self->{'_taxon_id'}) {
-       $self->{'_taxon'} = $self->adaptor->db->get_NCBITaxonAdaptor->fetch_node_by_taxon_id($self->{'_taxon_id'});
-
-    } else {
-        throw("taxon_id is not defined. Can't fetch Taxon without a taxon_id");
+    } elsif (!$self->{'_taxon'}) {
+        if (defined $self->{'_taxon_id'}) {
+            $self->{'_taxon'} = $self->adaptor->db->get_NCBITaxonAdaptor->fetch_node_by_taxon_id($self->{'_taxon_id'});
+        } else {
+            throw("taxon_id is not defined. Can't fetch Taxon without a taxon_id");
+        }
     }
 
     return $self->{'_taxon'};

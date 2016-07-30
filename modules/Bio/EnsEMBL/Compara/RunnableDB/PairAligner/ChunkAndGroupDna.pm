@@ -1,6 +1,7 @@
 =head1 LICENSE
 
-Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+Copyright [2016] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -239,6 +240,7 @@ sub create_chunks
       #default for $include_non_reference = 0, $include_duplicates = 0
     $chromosomes = $SliceAdaptor->fetch_all('toplevel',undef, $self->param('include_non_reference'), $self->param('include_duplicates'));
   }
+  $_->get_all_synonyms() for @$chromosomes; # load all the synonyms within the same connection
  } );
 
   print("number of seq_regions ".scalar @{$chromosomes}."\n");
@@ -267,10 +269,7 @@ sub create_chunks
       }
     }
 
-    my ($dnafrag) = @{$dnafragDBA->fetch_all_by_GenomeDB_region(
-                      $genome_db,
-                      $chr->coord_system->name(), #$self->{'coordinate_system'},
-                      $chr->seq_region_name)};
+    my $dnafrag = $dnafragDBA->fetch_by_GenomeDB_and_name($genome_db, $chr->seq_region_name);
 
     #Uncomment following line to prevent import of missing dnafrags
     #next unless ($dnafrag);
@@ -293,6 +292,7 @@ sub create_chunks
       $dnafrag->length($chr->seq_region_length);
       $dnafragDBA->store_if_needed($dnafrag);
     }
+    $dnafrag->{'_slice'} = $chr;
     $self->create_dnafrag_chunks($dnafrag, $masking_options, $chr->start, $chr->end);
     #Temporary fix to problem in core when masking haplotypes because the
     #assembly mapper is cached but shouldn't be  
@@ -314,8 +314,6 @@ sub create_dnafrag_chunks {
   my $region_end = (shift or $dnafrag->length);
 
  #return if($dnafrag->display_id =~ /random/);
-
-  my $dnafragDBA = $self->compara_dba->get_DnaFragAdaptor;
 
   #If chunk_size is not set then set it to be the fragment length 
   #overlap must be 0 in this case.

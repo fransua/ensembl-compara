@@ -1,6 +1,7 @@
 =head1 LICENSE
 
-Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+Copyright [2016] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -209,16 +210,6 @@ our $config = {
                                       ],
                             },
 
-
-     epo_removed_members_globally => {
-                             tests => [
-                                       {
-                                        description => 'We should have removed members on all the low-coverage-assembly species',
-                                        query       => 'SELECT genome_db.name FROM species_set JOIN genome_db USING(genome_db_id) JOIN species_set_header USING (species_set_id) WHERE species_set_header.name="low-coverage-assembly" AND genome_db_id NOT IN(SELECT DISTINCT(genome_db_id) FROM gene_tree_backup JOIN seq_member USING (seq_member_id) WHERE is_removed = 1);',
-                                       },
-                                      ],
-                            },
-
     ### Blast hits
     ###############
 
@@ -359,6 +350,10 @@ our $config = {
                 query => 'SELECT gtn.node_id FROM gene_tree_node gtn JOIN gene_tree_node_attr gtna USING (node_id) WHERE gtn.root_id = #gene_tree_id# AND seq_member_id IS NULL AND ((node_type = "duplication" AND duplication_confidence_score = 0) OR (node_type = "dubious" AND duplication_confidence_score != 0) OR (node_type = "gene_split" AND duplication_confidence_score != 1))',
             },
             ## TODO: add something to test the presence of tree_support
+            #{
+                #description => '"tree_support" tags must be present at all internal nodes',
+                #query => 'SELECT gene_tree_node.*, COUNT(value) FROM gene_tree_node LEFT JOIN gene_tree_node_tag ON gene_tree_node.node_id = gene_tree_node_tag.node_id AND tag = "tree_support" WHERE root_id = #gene_tree_id# GROUP BY gene_tree_node.node_id HAVING (seq_member_id IS NULL) XOR (COUNT(value) > 0)',
+            #},
         ],
     },
 

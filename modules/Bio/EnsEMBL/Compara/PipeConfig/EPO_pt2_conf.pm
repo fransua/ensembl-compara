@@ -1,6 +1,7 @@
 =head1 LICENSE
 
-Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+Copyright [2016] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -59,8 +60,10 @@ package Bio::EnsEMBL::Compara::PipeConfig::EPO_pt2_conf;
 
 use strict;
 use warnings;
+
+use Bio::EnsEMBL::Hive::Version 2.4;
+
 use base ('Bio::EnsEMBL::Compara::PipeConfig::ComparaGeneric_conf');
-use Data::Dumper;
 
 sub default_options {
     my ($self) = @_;
@@ -199,8 +202,8 @@ sub pipeline_analyses {
                     check_gene_content  => 0,
                 },
                 -flow_into => {
-                    2 => { ':////accu?reused_gdb_ids=[]' => { 'reused_gdb_ids' => '#genome_db_id#'} },
-                    3 => { ':////accu?nonreused_gdb_ids=[]' => { 'nonreused_gdb_ids' => '#genome_db_id#'} },
+                    2 => '?accu_name=reused_gdb_ids&accu_address=[]&accu_input_variable=genome_db_id',
+                    3 => '?accu_name=nonreused_gdb_ids&accu_address=[]&accu_input_variable=genome_db_id',
                 },
             },
 
@@ -231,10 +234,9 @@ sub pipeline_analyses {
                     'db_conn'    => '#reuse_db#',
                     # FIXME the INSERT may fail because method_link_species_set_id is not defined in this database
                     'inputquery' => 'SELECT anchor_align.* FROM anchor_align JOIN dnafrag USING (dnafrag_id) WHERE genome_db_id = #genome_db_id# AND untrimmed_anchor_align_id IS NULL',
-                    'fan_branch_code' => 2,
                 },
                 -flow_into => {
-                    2 => [ ':////anchor_align' ],
+                    2 => [ '?table_name=anchor_align' ],
                 },
             },
 
@@ -298,7 +300,6 @@ sub pipeline_analyses {
                 -module     => 'Bio::EnsEMBL::Hive::RunnableDB::JobFactory',
                 -parameters => {
                                 'inputquery'      => "SELECT DISTINCT(anchor_id) AS anchor_id FROM anchor_align WHERE untrimmed_anchor_align_id IS NULL AND is_overlapping = 0",
-                                'fan_branch_code' => 2,
                                },  
                 -flow_into => {
                                2 => [ 'trim_anchor_align' ],

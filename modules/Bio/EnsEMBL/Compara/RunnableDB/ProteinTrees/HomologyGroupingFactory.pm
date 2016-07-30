@@ -1,6 +1,7 @@
 =head1 LICENSE
 
-Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+Copyright [2016] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -107,6 +108,7 @@ sub write_output {
     while (@$inputlist) {
         my @job_array = splice(@$inputlist, 0, $group_size);
         $self->dataflow_output_id( { 'mlss_id' => $self->param('homo_mlss_id'), 'min_homology_id' => $job_array[0], 'max_homology_id' => $job_array[-1] }, 2);
+        $self->dataflow_output_id( { 'mlss_id' => $self->param('homo_mlss_id'), 'homology_ids' => \@job_array }, 3 ); # to homology_id_mapping
     }
 }
 

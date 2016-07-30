@@ -1,6 +1,7 @@
 =head1 LICENSE
 
-Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+Copyright [2016] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -56,7 +57,6 @@ use base ('Bio::EnsEMBL::Compara::DBSQL::NestedSetAdaptor', 'Bio::EnsEMBL::Compa
 =head2 new_from_NestedSet
 
     Arg[1]      : An object that inherits from NestedSet
-    Arg[2](opt) : A method in the object to obtain the TaxonID in the non-leaf nodes (defaults to "name");
     Example     : my $st_node = Bio::EnsEMBL::Compara::SpeciesTreeNode->new_from_NestedSet($tree);
     Description : Constructor for species tree nodes. Given an object that inherits from NestedSet (possibly a tree), creates a new SpeciesTreeNode (possibly a tree).
     ReturnType  : EnsEMBL::Compara::SpeciesTreeNode
@@ -66,28 +66,14 @@ use base ('Bio::EnsEMBL::Compara::DBSQL::NestedSetAdaptor', 'Bio::EnsEMBL::Compa
 =cut
 
 sub new_from_NestedSet {
-    my ($self, $nestedSet_tree, $name_method, $taxon_id_method) = @_;
-    # It would be better if name_method and taxon_id_method are callbacks
-    # (or callbacks are allowed?)
-
-    $name_method = $name_method || "name";
-    $taxon_id_method = $taxon_id_method || "taxon_id";
+    my ($self, $nestedSet_tree) = @_;
 
     my $genomeDB_Adaptor = $self->db->get_GenomeDBAdaptor;
     my $NCBITaxon_Adaptor = $self->db->get_NCBITaxonAdaptor;
 
     my $tree = $nestedSet_tree->cast('Bio::EnsEMBL::Compara::SpeciesTreeNode');
     for my $node (@{$tree->get_all_nodes}) {
-        my $name = $node->$name_method;
-        my $taxon_id = $node->$taxon_id_method;
-        if ($node->is_leaf) {
-            if (defined $taxon_id) {
-                $node->taxon_id($taxon_id);
-            }
-            if (defined $name) {
-                $node->node_name($name);
-            }
-
+        if ($node->is_leaf && !$node->genome_db_id) {
             my $genomeDB;
             if ($node->genome_db_id) {
                 $genomeDB = $genomeDB_Adaptor->fetch_by_dbID($node->genome_db_id);
@@ -98,18 +84,17 @@ sub new_from_NestedSet {
             }
             if (defined $genomeDB) {
                 $node->genome_db_id($genomeDB->dbID);
-                $node->taxon_id($genomeDB->taxon_id)
             }
-
-        } else {
+        }
+        if (!$node->{_taxon} || !$node->{_taxon_id}) {
             my $taxon_node;
-            if (defined $taxon_id) {
-                $taxon_node = $NCBITaxon_Adaptor->fetch_node_by_taxon_id($taxon_id)
-            } elsif (defined $name) {
-                $taxon_node = $NCBITaxon_Adaptor->fetch_node_by_name($name);
+            if (defined $node->taxon_id) {
+                $taxon_node = $NCBITaxon_Adaptor->fetch_node_by_taxon_id($node->taxon_id);
+            } elsif (defined $node->name) {
+                $taxon_node = $NCBITaxon_Adaptor->fetch_node_by_name($node->name);
             }
             if (defined $taxon_node) {
-                $node->taxon_id($taxon_node->taxon_id);
+                $node->taxon($taxon_node);
             }
         }
     }
@@ -180,7 +165,7 @@ sub store_node {
 # tagging
 #
 sub _tag_capabilities {
-    return ('species_tree_node_tag', undef, 'node_id', 'node_id');
+    return ('species_tree_node_tag', 'species_tree_node_attr', 'node_id', 'node_id', 'tag', 'value');
 }
 
 

@@ -1,6 +1,7 @@
 =head1 LICENSE
 
-Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+Copyright [2016] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -1419,11 +1420,7 @@ sub get_GenomicAlignTree {
                                                                                               -species_set => $species_set)->newick_format('ncbi_name');
     } else {
         #Multiple alignment 
-        #Get SpeciesTree from database.
-        my $species_tree_adaptor = $self->adaptor->db->get_SpeciesTreeAdaptor;
-        my $label = "default";
-        #Read tree from SpeciesTreeNode table
-        $species_tree_string = $species_tree_adaptor->fetch_by_method_link_species_set_id_label($self->method_link_species_set->dbID, $label)->species_tree();
+        $species_tree_string = $self->method_link_species_set->species_tree->root->newick_format("ncbi_name");
     }
     #print "string $species_tree_string\n";
 
@@ -1473,7 +1470,7 @@ sub get_GenomicAlignTree {
 sub _print {    ## DEPRECATED
   my ($self, $FILEH) = @_;
 
-  deprecate('$genomic_align_block->_print() is deprecated and will be removed in e87. Use $genomic_align_block->toString() instead.');
+  deprecate('$genomic_align_block->_print() is deprecated and will be removed in e86. Use $genomic_align_block->toString() instead.');
 
   $FILEH ||= \*STDOUT;
   print $FILEH
@@ -1526,135 +1523,5 @@ sub toString {
     return $str;
 }
 
-
-#####################################################################
-#####################################################################
-
-=head1 METHODS FOR BACKWARDS COMPATIBILITY
-
-Consensus and Query DnaFrag are no longer used. DO NOT USE THOSE METHODS IN NEW SCRIPTS, THEY WILL DISSAPEAR!!
-
-For backwards compatibility, consensus_genomic_align correponds to the lower genome_db_id by convention.
-This convention works for pairwise alignment only! Trying to use the old API methods for multiple
-alignments will throw an exception.
-
-=cut
-
-#####################################################################
-#####################################################################
-
-
-sub get_old_consensus_genomic_align {   ## DEPRECATED
-  my ($self) = @_;
-
-  deprecate('$genomic_align_block->get_old_consensus_genomic_align() will be removed in e87. Contact the Compara team if you need it.');
-
-  my $genomic_aligns = $self->get_all_GenomicAligns;
-  if (!@$genomic_aligns) {
-    throw "Bio::EnsEMBL::Compara::GenomicAlignBlock ($self) does not have any associated".
-        " Bio::EnsEMBL::Compara::GenomicAlign";
-  }
-
-  if (scalar(@{$genomic_aligns}) != 2) {
-    throw "Trying to get old_consensus_genomic_align from Bio::EnsEMBL::Compara::GenomicAlignBlock".
-        " ($self) holding a multiple alignment";
-  }
-
-  if ($genomic_aligns->[0]->dnafrag->genome_db->dbID > $genomic_aligns->[1]->dnafrag->genome_db->dbID) {
-    return $genomic_aligns->[1];
-
-  } elsif ($genomic_aligns->[0]->dnafrag->genome_db->dbID < $genomic_aligns->[1]->dnafrag->genome_db->dbID) {
-    return $genomic_aligns->[0];
-
-  ## If they belongs to the same genome_db, use the dnafrag_id instead
-  } elsif ($genomic_aligns->[0]->dnafrag->dbID > $genomic_aligns->[1]->dnafrag->dbID) {
-    return $genomic_aligns->[1];
-
-  } elsif ($genomic_aligns->[0]->dnafrag->dbID < $genomic_aligns->[1]->dnafrag->dbID) {
-    return $genomic_aligns->[0];
-
-  ## If they belongs to the same genome_db and dnafrag, use the dnafrag_start instead
-  } elsif ($genomic_aligns->[0]->dnafrag_start > $genomic_aligns->[1]->dnafrag_start) {
-    return $genomic_aligns->[1];
-
-  } elsif ($genomic_aligns->[0]->dnafrag_start < $genomic_aligns->[1]->dnafrag_start) {
-    return $genomic_aligns->[0];
-
-  ## If they belongs to the same genome_db and dnafrag and have the same danfrag_start, use the dnafrag_end instead
-  } elsif ($genomic_aligns->[0]->dnafrag_end > $genomic_aligns->[1]->dnafrag_end) {
-    return $genomic_aligns->[1];
-
-  } elsif ($genomic_aligns->[0]->dnafrag_end < $genomic_aligns->[1]->dnafrag_end) {
-    return $genomic_aligns->[0];
-
-  ## If everithing else fails, use the dnafrag_strand
-  } elsif ($genomic_aligns->[0]->dnafrag_strand > $genomic_aligns->[1]->dnafrag_strand) {
-    return $genomic_aligns->[1];
-
-  } elsif ($genomic_aligns->[0]->dnafrag_strand < $genomic_aligns->[1]->dnafrag_strand) {
-    return $genomic_aligns->[0];
-
-  # Whatever, they are the same. Use 0 for consensus and 1 for query
-  } else {
-    return $genomic_aligns->[0];
-  }
-}
-
-
-sub get_old_query_genomic_align {   ## DEPRECATED
-  my ($self) = @_;
-
-  deprecate('$genomic_align_block->get_old_query_genomic_align() will be removed in e87. Contact the Compara team if you need it.');
-
-  my $genomic_aligns = $self->get_all_GenomicAligns;
-  if (!@$genomic_aligns) {
-    throw "Bio::EnsEMBL::Compara::GenomicAlignBlock ($self) does not have any associated".
-        " Bio::EnsEMBL::Compara::GenomicAlign";
-  }
-  
-  if (scalar(@{$genomic_aligns}) != 2) {
-    throw "Trying to get old_consensus_genomic_align from Bio::EnsEMBL::Compara::GenomicAlignBlock".
-        " ($self) holding a multiple alignment";
-  }
-
-  if ($genomic_aligns->[0]->dnafrag->genome_db->dbID > $genomic_aligns->[1]->dnafrag->genome_db->dbID) {
-    return $genomic_aligns->[0];
-
-  } elsif ($genomic_aligns->[0]->dnafrag->genome_db->dbID < $genomic_aligns->[1]->dnafrag->genome_db->dbID) {
-    return $genomic_aligns->[1];
-
-  ## If they belongs to the same genome_db, use the dnafrag_id instead
-  } elsif ($genomic_aligns->[0]->dnafrag->dbID > $genomic_aligns->[1]->dnafrag->dbID) {
-    return $genomic_aligns->[0];
-
-  } elsif ($genomic_aligns->[0]->dnafrag->dbID < $genomic_aligns->[1]->dnafrag->dbID) {
-    return $genomic_aligns->[1];
-
-  ## If they belongs to the same genome_db and dnafrag, use the dnafrag_start instead
-  } elsif ($genomic_aligns->[0]->dnafrag_start > $genomic_aligns->[1]->dnafrag_start) {
-    return $genomic_aligns->[0];
-
-  } elsif ($genomic_aligns->[0]->dnafrag_start < $genomic_aligns->[1]->dnafrag_start) {
-    return $genomic_aligns->[1];
-
-  ## If they belongs to the same genome_db and dnafrag and have the same danfrag_start, use the dnafrag_end instead
-  } elsif ($genomic_aligns->[0]->dnafrag_end > $genomic_aligns->[1]->dnafrag_end) {
-    return $genomic_aligns->[0];
-
-  } elsif ($genomic_aligns->[0]->dnafrag_end < $genomic_aligns->[1]->dnafrag_end) {
-    return $genomic_aligns->[1];
-
-  ## If everithing else fails, use the dnafrag_strand
-  } elsif ($genomic_aligns->[0]->dnafrag_strand > $genomic_aligns->[1]->dnafrag_strand) {
-    return $genomic_aligns->[0];
-
-  } elsif ($genomic_aligns->[0]->dnafrag_strand < $genomic_aligns->[1]->dnafrag_strand) {
-    return $genomic_aligns->[1];
-
-  # Whatever, they are the same. Use 0 for consensus and 1 for query
-  } else {
-    return $genomic_aligns->[1];
-  }
-}
 
 1;

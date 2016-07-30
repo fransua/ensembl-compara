@@ -1,6 +1,7 @@
 =head1 LICENSE
 
-Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+Copyright [2016] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -101,7 +102,7 @@ sub load_hmmer_classifications {
         } else {
             # If it is not a singleton, we add the name of the model to store in the db
             print STDERR Dumper $allclusters{$model_name};
-            $allclusters{$model_name}{model_name} = $model_name;
+            $allclusters{$model_name}{model_id} = $model_name;
             $allclusters{$model_name}{division} = $division if $division;
         }
     }
