@@ -169,6 +169,7 @@ sub pipeline_analyses {
 return [
 # ------------------------------------- set up the necessary database tables
 
+<<<<<<< HEAD
     {
         -logic_name => 'populate_new_database',
         -module     => 'Bio::EnsEMBL::Compara::RunnableDB::GenomicAlignBlock::PopulateNewDatabase',
@@ -184,9 +185,6 @@ return [
     {
         -logic_name => 'set_genome_db_locator_factory',
         -module     => 'Bio::EnsEMBL::Compara::RunnableDB::GenomeDBFactory',
-        -parameters => {
-            'extra_parameters'  =>  [ 'name' ],
-        },
         -flow_into  => {
             '2->A' => [ 'update_genome_db_locator' ],
             '1->A' => [ 'make_species_tree' ],
@@ -197,14 +195,12 @@ return [
 { # this sets up the locator field in the genome_db table
  -logic_name => 'update_genome_db_locator',
  -module     => 'Bio::EnsEMBL::Compara::Production::EPOanchors::UpdateGenomeDBLocator',
- -meadow_type    => 'LOCAL',
 },
 
 {
  -logic_name    => 'make_species_tree',
  -module        => 'Bio::EnsEMBL::Compara::RunnableDB::MakeSpeciesTree',
  -parameters    => {
-   'newick_format' => 'simple',
    'blength_tree_file' => $self->o('species_tree_file'),    
  },
 },
