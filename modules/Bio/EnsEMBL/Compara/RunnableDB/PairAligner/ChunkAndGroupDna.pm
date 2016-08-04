@@ -65,6 +65,7 @@ sub param_defaults {
     return {
         'region'            => undef,
         'group_set_size'    => 0,
+        'flow_chunksets'    => 1,
     }
 }
 
@@ -80,11 +81,6 @@ sub param_defaults {
 
 sub fetch_input {
   my( $self) = @_;
-
-  #whether to dataflow_output to store_sequence (true) or dump_large_nib_for_chains (false)
-  unless (defined $self->param('flow_to_store_sequence')) {
-      $self->param('flow_to_store_sequence', 1); 
-  }
 
   throw("No genome_db specified") unless defined($self->param('genome_db_id'));
   
@@ -120,23 +116,14 @@ sub write_output
 
   #Create a StoreSequence job for each DnaFragChunkSet object 
   #to parallelise the storing of sequences in the Sequence table.
-  if ($self->param('flow_to_store_sequence')) {
+  if ($self->param('flow_chunksets')) {
       my $dna_objects = $self->param('dna_collection')->get_all_DnaFragChunkSets;
       foreach my $dna_object (@$dna_objects) {
-          my $object_id_name = 'chunkSetID';
-          my $hash_output;
-            %$hash_output = ($object_id_name => $dna_object->dbID);
-            
+          my $hash_output = { 'chunkSetID' => $dna_object->dbID };
 	    # Use branch2 to send data to StoreSequence:
             $self->dataflow_output_id($hash_output, 2 );
       }
-
-      #Stop flow into dump_large_nib_for_chains on branch 1?
-      $self->input_job->autoflow(0);
   }
-  #Else flow on branch 1 to dump_large_nib_for_chains
-
-  return 1;
 }
 
 
@@ -280,16 +267,7 @@ sub create_chunks
       # create dnafrag for this chromosome
       #
       #print "loading dnafrag for ".$chr->name."...\n";
-      $dnafrag = new Bio::EnsEMBL::Compara::DnaFrag;
-      $dnafrag->name($chr->seq_region_name); #ie just 22
-      $dnafrag->genome_db($genome_db);
-      $dnafrag->coord_system_name($chr->coord_system->name());
-      $dnafrag->is_reference($chr->is_reference);
-
-      #Need total length of dnafrag, not just end-start+1, otherwise the dnafrag_chunks are created
-      #incorrectly because the chr->end becomes (end-start+1) but this could be less than chr->start
-      #$dnafrag->length($chr->length);
-      $dnafrag->length($chr->seq_region_length);
+      $dnafrag = Bio::EnsEMBL::Compara::DnaFrag->new_from_Slice($chr, $genome_db);
       $dnafragDBA->store_if_needed($dnafrag);
     }
     $dnafrag->{'_slice'} = $chr;

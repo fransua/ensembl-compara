@@ -41,12 +41,16 @@ package Bio::EnsEMBL::Compara::Production::DnaFragChunk;
 use strict;
 use warnings;
 
+use File::Path;
+use File::Basename;
 use Time::HiRes qw(time gettimeofday tv_interval);
 
 use Bio::Seq;
 use Bio::SeqIO;
 
 use Bio::EnsEMBL::Utils::Scalar qw(:assert);
+
+use Bio::EnsEMBL::Hive::Utils 'dir_revhash';
 
 use base ('Bio::EnsEMBL::Storable');        # inherit dbID(), adaptor() and new() methods
 
@@ -330,6 +334,8 @@ sub dump_to_fasta_file
 {
   my $self = shift;
   my $fastafile = shift;
+
+  mkpath(dirname($fastafile));
   
   my $bioseq = $self->bioseq;
 
@@ -394,6 +400,27 @@ sub dump_chunks_to_fasta_file
   }
   close OUTSEQ;
   return $self;
+}
+
+
+=head2 dump_loc_file
+
+  Example     : $chunk->dump_loc_file();
+  Description : Returns the path to this Chunk in the dump location of its DnaCollection
+  Returntype  : String
+  Exceptions  : none
+  Caller      : general
+  Status      : Stable
+
+=cut
+
+sub dump_loc_file {
+    my $self = shift;
+    my $dna_collection = shift;
+
+    my $dump_loc = $dna_collection->dump_loc;
+    my $sub_dir  = dir_revhash($self->dbID);
+    return sprintf('%s/%s/chunk_%s.fa', $dump_loc, $sub_dir, $self->dbID);
 }
 
 

@@ -126,7 +126,7 @@ sub fetch_input {
   $self->param('chunks_lookup', \%chunks_lookup);
 
   #$db_DnaFragChunkSet->load_all_sequences();
-  $query_DnaFragChunkSet->load_all_sequences();
+  $query_DnaFragChunkSet->load_all_sequences() unless $query_DnaFragChunkSet->dna_collection->dump_loc && (-s $query_DnaFragChunkSet->dump_loc_file);
 
   throw("Missing method_link_type") unless($self->param('method_link_type'));
 
@@ -242,7 +242,11 @@ sub dumpChunkSetToWorkdir
   my $chunkSet   = shift;
 
   if ($chunkSet->dna_collection->dump_loc) {
-      return $chunkSet->dump_loc_file;
+      my $fastafile = $chunkSet->dump_loc_file;
+      if (-s $fastafile) {
+          if($self->debug){print("dumpChunkSetToWorkdir : $fastafile already dumped\n");}
+          return $fastafile
+      }
   }
 
   my $starttime = time();
@@ -264,6 +268,15 @@ sub dumpChunkToWorkdir
 {
   my $self = shift;
   my $chunk = shift;
+  my $dna_collection = shift;
+
+  if ($dna_collection->dump_loc) {
+      my $fastafile = $chunk->dump_loc_file($dna_collection);
+      if (-s $fastafile) {
+          if($self->debug){print("dumpChunkToWorkdir : $fastafile already dumped\n");}
+          return $fastafile
+      }
+  }
 
   my $starttime = time();
 

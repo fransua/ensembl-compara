@@ -104,7 +104,7 @@ sub fetch_input {
   #Check if doing self_alignment where the species_set will contain only one
   #entry
   my $self_alignment = 0;
-  if (@{$mlss->species_set_obj->genome_dbs} == 1) {
+  if (@{$mlss->species_set->genome_dbs} == 1) {
       $self_alignment = 1;
   }
   
@@ -244,6 +244,7 @@ sub delete_alignments {
 sub run {
   my ($self) = @_;
 
+  $self->compara_dba->dbc->disconnect_if_idle();    # this one should disconnect only if there are no active kids
   my $runnable = $self->param('runnable');
   $runnable->run;
   $self->cleanse_output($runnable->output);

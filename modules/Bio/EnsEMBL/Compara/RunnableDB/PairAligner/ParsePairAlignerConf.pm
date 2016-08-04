@@ -585,7 +585,7 @@ sub parse_defaults {
     if ($self->param('mlss_id')) {
 	my $mlss_adaptor = $self->compara_dba->get_MethodLinkSpeciesSetAdaptor;
 	$mlss = $mlss_adaptor->fetch_by_dbID($self->param('mlss_id'));
-	$genome_dbs = $mlss->species_set_obj->genome_dbs;
+	$genome_dbs = $mlss->species_set->genome_dbs;
     } 
     #load genome_dbs from a collection
     if ($self->param('collection')) {
@@ -705,9 +705,10 @@ sub parse_defaults {
             throw ("Net reference species " . $self->param('net_ref_species') . " must be either " . $pair->{ref_genome_db}->_get_unique_name . " or " . $pair->{non_ref_genome_db}->_get_unique_name );
         }
 
+	my $dna_dump_loc = $self->param('dump_dir') . "/dna/";
 	my $dump_loc = $self->param('dump_dir') . "/" . $pair->{ref_genome_db}->_get_unique_name . "_nib_for_chain";
 	
-	%{$dna_collections->{$pair_aligner->{'reference_collection_name'}}} = ('genome_db' => $pair->{ref_genome_db});
+	%{$dna_collections->{$pair_aligner->{'reference_collection_name'}}} = ('genome_db' => $pair->{ref_genome_db}, 'dump_loc' => $dna_dump_loc);
 	%{$dna_collections->{$chain_config->{'reference_collection_name'}}} = ('genome_db' => $pair->{ref_genome_db},
 									      'dump_loc' => $dump_loc);
 
@@ -725,7 +726,7 @@ sub parse_defaults {
 	    
 	$dump_loc = $self->param('dump_dir') . "/" . $pair->{non_ref_genome_db}->_get_unique_name . "_nib_for_chain";
 	
-	%{$dna_collections->{$pair_aligner->{'non_reference_collection_name'}}} = ('genome_db' => $pair->{non_ref_genome_db});
+	%{$dna_collections->{$pair_aligner->{'non_reference_collection_name'}}} = ('genome_db' => $pair->{non_ref_genome_db}, 'dump_loc' => $dna_dump_loc);
 	%{$dna_collections->{$chain_config->{'non_reference_collection_name'}}} = ('genome_db' => $pair->{non_ref_genome_db},
 										   'dump_loc' => $dump_loc);
 
@@ -818,7 +819,7 @@ sub write_mlss_entry {
 	-class              => "GenomicAlignBlock.pairwise_alignment",
     );
 
-    my $species_set_obj = Bio::EnsEMBL::Compara::SpeciesSet->new(
+    my $species_set = Bio::EnsEMBL::Compara::SpeciesSet->new(
         -genome_dbs         => ($ref_genome_db->dbID == $non_ref_genome_db->dbID)
                                         ? [$ref_genome_db]
                                         : [$ref_genome_db,$non_ref_genome_db]
@@ -826,7 +827,7 @@ sub write_mlss_entry {
 
     my $mlss = Bio::EnsEMBL::Compara::MethodLinkSpeciesSet->new(
         -method             => $method,
-        -species_set_obj    => $species_set_obj,
+        -species_set    => $species_set,
         -name               => $name,
         -source             => $source,
     );

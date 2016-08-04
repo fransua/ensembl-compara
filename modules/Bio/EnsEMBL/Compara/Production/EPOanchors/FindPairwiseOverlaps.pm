@@ -57,7 +57,7 @@ sub fetch_input {
 	my (@multi_gab_overlaps, @mlss);
         my $methods = $self->compara_dba->get_MethodAdaptor->fetch_all_by_class_pattern('GenomicAlignBlock.pairwise_alignment');
         my $main_mlss = $method_link_species_set_adaptor->fetch_by_dbID($self->param_required('mlss_id'));
-        foreach my $non_ref_genome_db (@{$main_mlss->species_set_obj->genome_dbs}) {
+        foreach my $non_ref_genome_db (@{$main_mlss->species_set->genome_dbs}) {
                 next if $non_ref_genome_db->dbID == $self->param('reference_genome_db_id');
                 my $species_set = $self->compara_dba->get_SpeciesSetAdaptor->fetch_by_GenomeDBs( [$ref_genome_db, $non_ref_genome_db] )
                     || die "Cannot find a SpeciesSet for the pair ".$ref_genome_db->toString." + ".$non_ref_genome_db->toString."\n";

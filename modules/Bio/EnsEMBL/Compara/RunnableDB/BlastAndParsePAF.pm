@@ -75,6 +75,7 @@ sub param_defaults {
             'no_cigars'     => 0,
             'allow_same_species_hits'  => 0,
             'blast_db'      => undef,
+            'member_id_list'    => undef,
     };
 }
 
@@ -83,7 +84,14 @@ sub param_defaults {
 sub fetch_input {
     my $self = shift @_;
 
-    $self->param('query_set', Bio::EnsEMBL::Compara::MemberSet->new(-members => $self->get_queries));
+    my $member_id_list = $self->param('member_id_list');
+    my $members;
+    if ($member_id_list) {
+        $members = $self->compara_dba->get_SeqMemberAdaptor->fetch_all_by_dbID_list($member_id_list);
+    } else {
+        $members = $self->get_queries;
+    }
+    $self->param('query_set', Bio::EnsEMBL::Compara::MemberSet->new(-members => $members));
 
     $self->param('expected_members',scalar(@{$self->param('query_set')->get_all_Members}));
 
@@ -93,7 +101,7 @@ sub fetch_input {
 
     my $mlss_id         = $self->param_required('mlss_id');
     my $mlss            = $self->compara_dba()->get_MethodLinkSpeciesSetAdaptor->fetch_by_dbID($mlss_id) or die "Could not fetch mlss with dbID=$mlss_id";
-    my $species_set     = $mlss->species_set_obj->genome_dbs;
+    my $species_set     = $mlss->species_set->genome_dbs;
 
     $self->param('all_blast_db', {});
 
@@ -142,7 +150,7 @@ sub fetch_input {
         # Otherwise, we get the set of species from mlss_id
         my $mlss_id         = $self->param_required('mlss_id');
         my $mlss            = $self->compara_dba()->get_MethodLinkSpeciesSetAdaptor->fetch_by_dbID($mlss_id) or die "Could not fetch mlss with dbID=$mlss_id";
-        my $species_set     = $mlss->species_set_obj->genome_dbs;
+        my $species_set     = $mlss->species_set->genome_dbs;
 
         $genome_db_list = [ grep {$_->dbID != $self->param('genome_db_id')} @$species_set ];
 

@@ -37,7 +37,7 @@ Relates every method_link with the species_set for which it has been used
   my $method_link_species_set = Bio::EnsEMBL::Compara::MethodLinkSpeciesSet->new(
                        -adaptor             => $method_link_species_set_adaptor,
                        -method              => Bio::EnsEMBL::Compara::Method->new( -type => 'MULTIZ'),
-                       -species_set_obj     => Bio::EnsEMBL::Compara::SpeciesSet->new( -genome_dbs => [$gdb1, $gdb2, $gdb3]),
+                       -species_set     => Bio::EnsEMBL::Compara::SpeciesSet->new( -genome_dbs => [$gdb1, $gdb2, $gdb3]),
                        -max_alignment_length => 10000,
                    );
 
@@ -45,7 +45,7 @@ SET VALUES
   $method_link_species_set->dbID( 12 );
   $method_link_species_set->adaptor( $mlss_adaptor );
   $method_link_species_set->method( Bio::EnsEMBL::Compara::Method->new( -type => 'MULTIZ') );
-  $method_link_species_set->species_set_obj( Bio::EnsEMBL::Compara::SpeciesSet->new( -genome_dbs => [$gdb1, $gdb2, $gdb3]) );
+  $method_link_species_set->species_set( Bio::EnsEMBL::Compara::SpeciesSet->new( -genome_dbs => [$gdb1, $gdb2, $gdb3]) );
   $method_link_species_set->max_alignment_length( 10000 );
 
 GET VALUES
@@ -54,9 +54,9 @@ GET VALUES
   my $method            = $method_link_species_set->method();
   my $method_link_id    = $method_link_species_set->method->dbID();
   my $method_link_type  = $method_link_species_set->method->type();
-  my $species_set       = $method_link_species_set->species_set_obj();
-  my $species_set_id    = $method_link_species_set->species_set_obj->dbID();
-  my $genome_dbs        = $method_link_species_set->species_set_obj->genome_dbs();
+  my $species_set       = $method_link_species_set->species_set();
+  my $species_set_id    = $method_link_species_set->species_set->dbID();
+  my $genome_dbs        = $method_link_species_set->species_set->genome_dbs();
   my $max_alignment_length = $method_link_species_set->max_alignment_length();
 
 =head1 APPENDIX
@@ -91,7 +91,7 @@ my $DEFAULT_MAX_ALIGNMENT = 20000;
   Arg [-ADAPTOR]        : (opt.) Bio::EnsEMBL::Compara::DBSQL::MethodLinkSpeciesSetAdaptor $adaptor
                             (the adaptor for connecting to the database)
   Arg [-METHOD]         : Bio::EnsEMBL::Compara::Method $method object
-  Arg [-SPECIES_SET_OBJ]: Bio::EnsEMBL::Compara::SpeciesSet $species_set object
+  Arg [-SPECIES_SET]    : Bio::EnsEMBL::Compara::SpeciesSet $species_set object
   Arg [-NAME]           : (opt.) string $name (the name for this method_link_species_set)
   Arg [-SOURCE]         : (opt.) string $source (the source of these data)
   Arg [-URL]            : (opt.) string $url (the original url of these data)
@@ -101,7 +101,7 @@ my $DEFAULT_MAX_ALIGNMENT = 20000;
   Example     : my $method_link_species_set = Bio::EnsEMBL::Compara::MethodLinkSpeciesSet->new(
                        -adaptor => $method_link_species_set_adaptor,
                        -method => Bio::EnsEMBL::Compara::Method->new( -type => 'MULTIZ' ),
-                       -species_set_obj => Bio::EnsEMBL::Compara::SpeciesSet->new( -genome_dbs => [$gdb1, $gdb2, $gdb3] ),
+                       -species_set => Bio::EnsEMBL::Compara::SpeciesSet->new( -genome_dbs => [$gdb1, $gdb2, $gdb3] ),
                        -max_alignment_length => 10000,
                    );
   Description : Creates a new MethodLinkSpeciesSet object
@@ -117,10 +117,10 @@ sub new {
 
     my $self = $class->SUPER::new(@_);  # deal with Storable stuff
 
-    my ($method, $species_set_obj,
+    my ($method, $species_set_obj, $species_set,
         $name, $source, $url, $max_alignment_length) =
             rearrange([qw(
-                METHOD SPECIES_SET_OBJ
+                METHOD SPECIES_SET_OBJ SPECIES_SET
                 NAME SOURCE URL MAX_ALIGNMENT_LENGTH)], @_);
 
   if($method) {
@@ -129,10 +129,13 @@ sub new {
       warning("method has not been set in MLSS->new");
   }
 
-  if ($species_set_obj) {
-      $self->species_set_obj($species_set_obj);
+  if ($species_set) {
+      $self->species_set($species_set);
+  } elsif ($species_set_obj) {
+      deprecate('MethodLinkSpeciesSet::new(-SPECIES_SET_OBJ => ...) is deprecated and will be removed in e89. Use -SPECIES_SET instead');
+      $self->species_set($species_set_obj);
   } else {
-      warning("species_set_obj has not been set in MLSS->new");
+      warning("species_set has not been set in MLSS->new");
   }
 
   $self->name($name) if (defined ($name));
@@ -172,27 +175,40 @@ sub method {
 }
 
 
-=head2 species_set_obj
+=head2 species_set_obj (DEPRECATED)
+
+  Description: DEPRECATED. It will be removed in e89. Use species_set() instead
+
+=cut
+
+sub species_set_obj {   ## DEPRECATED
+    my $self = shift;
+    deprecate('MethodLinkSpeciesSet::species_set_obj is deprecated and will be removed in e89. Use species_set() instead');
+    return $self->species_set(@_);
+}
+
+
+=head2 species_set
 
   Arg [1]    : (opt.) Bio::EnsEMBL::Compara::SpeciesSet species_set object
-  Example    : my $species_set_obj = $mlss->species_set_obj();
-  Example    : $mlss->species_set_obj( $species_set_obj );
-  Description: getter/setter for species_set_obj attribute
+  Example    : my $species_set = $mlss->species_set();
+  Example    : $mlss->species_set( $species_set );
+  Description: getter/setter for species_set attribute
   Returntype : Bio::EnsEMBL::Compara::SpeciesSet
   Exceptions : none
   Caller     : general
 
 =cut
 
-sub species_set_obj {
-    my ($self, $species_set_obj) = @_;
+sub species_set {
+    my ($self, $species_set) = @_;
 
-    if($species_set_obj) {
-        if(ref($species_set_obj) eq 'HASH') {
-            $species_set_obj = Bio::EnsEMBL::Compara::SpeciesSet->new( %$species_set_obj ) or die "Could not automagically create a SpeciesSet\n";
+    if($species_set) {
+        if(ref($species_set) eq 'HASH') {
+            $species_set = Bio::EnsEMBL::Compara::SpeciesSet->new( %$species_set ) or die "Could not automagically create a SpeciesSet\n";
         }
 
-        $self->{'species_set'} = $species_set_obj;
+        $self->{'species_set'} = $species_set;
     }
 
     return $self->{'species_set'};
@@ -291,7 +307,7 @@ sub get_common_classification {
   my ($self) = @_;
   my $common_classification;
 
-  my $species_set = $self->species_set_obj();
+  my $species_set = $self->species_set();
 
   foreach my $this_genome_db (@{$species_set->genome_dbs}) {
     my @classification = split(" ", $this_genome_db->taxon->classification);
@@ -348,7 +364,7 @@ sub toString {
 
     my $txt = sprintf('MethodLinkSpeciesSet dbID=%s', $self->dbID || '?');
     $txt .= ' ' . ($self->name ? sprintf('"%s"', $self->name) : '(unnamed)');
-    $txt .= sprintf(' {method "%s"} x {species-set "%s"}', $self->method->type, $self->species_set_obj->name || $self->species_set_obj->dbID);
+    $txt .= sprintf(' {method "%s"} x {species-set "%s"}', $self->method->type, $self->species_set->name || $self->species_set->dbID);
     $txt .= ', found in '.$self->url if $self->url;
     $txt .= ' ' . $self->SUPER::toString();
     return $txt;

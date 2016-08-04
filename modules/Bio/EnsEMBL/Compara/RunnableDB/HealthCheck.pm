@@ -446,7 +446,7 @@ sub _run_compare_to_previous_db_test {
   my $previous_db = $self->param_required('previous_db');
 
   my $method_link_type = $self->param('method_link_type');
-  my $current_genome_db_ids = $self->param_required('current_genome_db_ids');
+  my $current_genome_db_ids = $self->param('current_genome_db_ids');
   $max_percent_diff = $self->param('max_percentage_diff') if (defined($self->param('max_percentage_diff')));
 
   my $ensembl_release = $self->param('ensembl_release');
@@ -494,7 +494,7 @@ sub _run_compare_to_previous_db_test {
   } elsif (defined $current_mlss_id) {
       my $mlss = $current_mlss_adaptor->fetch_by_dbID($current_mlss_id);
       $method_link_type = $mlss->method->type;
-      @$current_genome_db_ids = map {$_->dbID} @{$mlss->species_set_obj->genome_dbs};
+      @$current_genome_db_ids = map {$_->dbID} @{$mlss->species_set->genome_dbs};
   } else {
       $self->throw("No current_mlss_id or method_link_type and current_genome_db_ids set\n");
   }
@@ -513,8 +513,8 @@ sub _run_compare_to_previous_db_test {
 	  if (!$previous_gdb) {
 	      $self->warning($g_db->name. " does not exist in the previous database (" . $previous_compara_dba->dbc->dbname . ")");
 	      return;
-	  } elsif ($g_db->component_genome_db and not $previous_gdb->component_genome_db) {
-              $previous_gdb = $previous_gdb->component_genome_dbs($g_db->component_genome_db);
+	  } elsif ($g_db->genome_component and not $previous_gdb->genome_component) {
+              $previous_gdb = $previous_gdb->component_genome_dbs($g_db->genome_component);
           }
 	  push @$previous_gdbs, $previous_gdb->dbID;
       }

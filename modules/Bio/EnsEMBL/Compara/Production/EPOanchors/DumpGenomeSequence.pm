@@ -79,11 +79,10 @@ sub fetch_input {
     my $genome_db_adaptor = $self->compara_dba()->get_adaptor("GenomeDB");
     my $genome_db = $genome_db_adaptor->fetch_by_dbID( $self->param('genome_db_id') );
     my $dnafrag_adaptor = $self->compara_dba()->get_adaptor("DnaFrag");
-    my $all_dnafrags = $dnafrag_adaptor->fetch_all_by_GenomeDB_region($genome_db);
+    my $reference_dnafrags = $dnafrag_adaptor->fetch_all_by_GenomeDB_region($genome_db, undef, undef, 1);
     my @all_slices;
     $genome_db->db_adaptor->dbc->prevent_disconnect( sub {
-            foreach my $ref_dnafrag( @$all_dnafrags ) {
-                next unless $ref_dnafrag->is_reference;
+            foreach my $ref_dnafrag( @$reference_dnafrags ) {
                 next if (($ref_dnafrag->dna_type eq 'MT') and $self->param('dont_dump_MT'));
                 $serializer->print_Seq($ref_dnafrag->slice);
             }

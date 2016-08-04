@@ -106,13 +106,14 @@ sub fetch_input {
   # get the compara data: MethodLinkSpeciesSet, reference DnaFrag, 
   # and all GenomicAlignBlocks
   ################################################################
-  print "mlss: ",$self->param('input_method_link')," ",$qy_gdb->dbID," ",$tg_gdb->dbID,"\n";
 
   my $mlss = $mlssa->fetch_by_dbID($self->param_required('input_mlss_id'))
               || throw("No MethodLinkSpeciesSet for method_link_species_set_id".$self->param('input_mlss_id'));
 
   my $out_mlss = $mlssa->fetch_by_dbID($self->param_required('output_mlss_id'))
               || throw("No MethodLinkSpeciesSet for method_link_species_set_id".$self->param('output_mlss_id'));
+
+  print "mlss: ",$self->param('input_mlss_id')," ",$qy_gdb->dbID," ",$tg_gdb->dbID,"\n";
 
   ######## needed for output####################
   $self->param('output_MethodLinkSpeciesSet', $out_mlss);
@@ -174,9 +175,12 @@ sub fetch_input {
       $parameters{'-query_slice'} = $query_slice;
       # If there is no .nib file, preload the sequence
       if ($query_nib_dir and (-d $query_nib_dir) and (-e $query_nib_dir . "/" . $query_slice->seq_region_name . ".nib")) {
+          print STDERR "reusing the query nib file\n";
           $parameters{'-query_nib_dir'} = $query_nib_dir;
       } else {
-          $query_slice->seq;
+          print STDERR "fetching the query sequence\n";
+          $query_slice->{'seq'} = $query_slice->seq;
+          print STDERR length($query_slice->{'seq'}), " bp\n";
       }
   } );
 
@@ -186,9 +190,12 @@ sub fetch_input {
       $parameters{'-target_slices'} = {$self->param('target_dnafrag')->name => $target_slice};
       # If there is no .nib file, preload the sequence
       if ($target_nib_dir and (-d $target_nib_dir) and (-e $target_nib_dir . "/" . $target_slice->seq_region_name . ".nib")) {
+          print STDERR "reusing the target nib file\n";
           $parameters{'-target_nib_dir'} = $target_nib_dir;
       } else {
-          $target_slice->seq;
+          print STDERR "fetching the target sequence\n";
+          $target_slice->{'seq'} = $target_slice->seq;
+          print STDERR length($target_slice->{'seq'}), " bp\n";
       }
   } );
 

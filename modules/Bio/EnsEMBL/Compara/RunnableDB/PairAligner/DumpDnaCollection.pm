@@ -52,12 +52,15 @@ package Bio::EnsEMBL::Compara::RunnableDB::PairAligner::DumpDnaCollection;
 
 use strict;
 use warnings;
+
+use File::Path;
+use File::Basename;
 use Time::HiRes qw(time gettimeofday tv_interval);
+
 use Bio::EnsEMBL::Analysis::Runnable::Blat;
 use Bio::EnsEMBL::Analysis::RunnableDB;
 
 use base ('Bio::EnsEMBL::Compara::RunnableDB::BaseRunnable');
-use File::Path;
 
 
 =head2 fetch_input
@@ -81,9 +84,6 @@ sub fetch_input {
       $self->param('faToNib_exe', 'faToNib');
   }
 
-  #must have dump_nib
-  die("Missing dump_nib") unless $self->param('dump_nib');
-
   return 1;
 }
 
@@ -93,9 +93,7 @@ sub run
 {
   my $self = shift;
 
-  if ($self->param('dump_nib')) {
-      $self->dumpNibFiles;
-  }
+  $self->dumpNibFiles;
 
   return 1;
 }
@@ -116,7 +114,8 @@ sub dumpNibFiles {
   my $starttime = time();
 
   my $dna_collection = $self->compara_dba->get_DnaCollectionAdaptor->fetch_by_set_description($self->param('collection_name'));
-  my $dump_loc = $dna_collection->dump_loc;
+  my $dump_loc = $dna_collection->dump_loc.'/nib_files';
+  mkpath(dirname($dump_loc));
 
   unless (defined $dump_loc) {
     die("dump_loc directory is not defined, can not dump nib files\n");

@@ -35,7 +35,7 @@ Bio::EnsEMBL::Compara::PipeConfig::PairAligner_conf
 
     #4. Run init_pipeline.pl script:
         Using command line arguments:
-        init_pipeline.pl Bio::EnsEMBL::Compara::PipeConfig::PairAligner_conf --pipeline_name hsap_ggor_lastz_64 --password <your_password) --mlss_id 536 --dump_dir /lustre/scratch103/ensembl/kb3/scratch/hive/release_64/hsap_ggor_nib_files/ --pair_aligner_options "T=1 K=5000 L=5000 H=3000 M=10 O=400 E=30 Q=/nfs/users/nfs_k/kb3/work/hive/data/primate.matrix --ambiguous=iupac" --bed_dir /nfs/ensembl/compara/dumps/bed/
+        init_pipeline.pl Bio::EnsEMBL::Compara::PipeConfig::PairAligner_conf --pipeline_name hsap_ggor_lastz_64 --password <your_password) --mlss_id 536 --dump_dir /lustre/scratch103/ensembl/kb3/scratch/hive/release_64/hsap_ggor/ --pair_aligner_options "T=1 K=5000 L=5000 H=3000 M=10 O=400 E=30 Q=/nfs/users/nfs_k/kb3/work/hive/data/primate.matrix --ambiguous=iupac" --bed_dir /nfs/ensembl/compara/dumps/bed/
 
         Using a configuration file:
         init_pipeline.pl Bio::EnsEMBL::Compara::PipeConfig::PairAligner_conf --password <your_password> --reg_conf reg.conf --conf_file input.conf --config_url mysql://user:pass\@host:port/db_name
@@ -76,9 +76,6 @@ sub default_options {
     my ($self) = @_;
     return {
         %{$self->SUPER::default_options},   # inherit the generic ones
-
-        #'ensembl_cvs_root_dir' => $ENV{'HOME'}.'/src/ensembl_main/', 
-        'ensembl_cvs_root_dir' => $ENV{'ENSEMBL_CVS_ROOT_DIR'}, 
 
              # dependent parameters:
         'host'        => 'compara1',                        #separate parameter to use the resources aswell
@@ -136,7 +133,7 @@ sub default_options {
         'ref_species' => undef,
 
 	#directory to dump nib files
-	'dump_dir' => '/lustre/scratch109/ensembl/' . $ENV{USER} . '/pair_aligner/nib_files/' . 'release_' . $self->o('rel_with_suffix') . '/',
+	'dump_dir' => '/lustre/scratch109/ensembl/' . $ENV{USER} . '/pair_aligner/' . $self->o('pipeline_name') . '/' . $self->o('host') . '/',
 
         #include MT chromosomes if set to 1 ie MT vs MT only else avoid any MT alignments if set to 0
         'include_MT' => 1,
@@ -145,8 +142,10 @@ sub default_options {
 	#Also the name of the MT chromosome in the db must be the string "MT".    
 	'MT_only' => 0, # if MT_only is set to 1, then include_MT must also be set to 1
 
-	#min length to dump dna as nib file
-	'dump_min_size' => 11500000, 
+        #min length to dump
+        'dump_min_nib_size'         => 11500000,
+        'dump_min_chunk_size'       => 1000000,
+        'dump_min_chunkset_size'    => 1000000,
 
 	#Use 'quick' method for finding max alignment length (ie max(genomic_align_block.length)) rather than the more
 	#accurate method of max(genomic_align.dnafrag_end-genomic_align.dnafrag_start+1)
@@ -272,8 +271,9 @@ sub pipeline_create_commands {
         coding_exon_length          INT(10) DEFAULT 0
         ) COLLATE=latin1_swedish_ci ENGINE=InnoDB;'),
 
+       'rm -rf '.$self->o('dump_dir'), #Cleanup dump_dir directory
        'mkdir -p '.$self->o('dump_dir'), #Make dump_dir directory
-       'mkdir -p '.$self->o('output_dir'), #Make dump_dir directory
+       'mkdir -p '.$self->o('output_dir'), #Make output_dir directory
        'mkdir -p '.$self->o('bed_dir'), #Make bed_dir directory
     ];
 }
@@ -286,6 +286,7 @@ sub resource_classes {
             %{$self->SUPER::resource_classes},  # inherit 'default' from the parent class
             '100Mb' => { 'LSF' => '-C0 -M100 -R"select[mem>100] rusage[mem=100]"' },
             '1Gb'   => { 'LSF' => '-C0 -M1000 -R"select[mem>1000] rusage[mem=1000]"' },
+            'long'   => { 'LSF' => '-q long -C0 -M1000 -R"select[mem>1000] rusage[mem=1000]"' },
                 # if running on one of compara1..5 servers that support my+$SERVERHOSTNAME resources:
             'crowd' => { 'LSF' => '-C0 -M1800 -R"select[mem>1800 && '.$self->o('dbresource').'<'.$self->o('aligner_capacity').'] rusage[mem=1800,'.$self->o('dbresource').'=10:duration=3]"' },
             'crowd_himem' => { 'LSF' => '-C0 -M6000 -R"select[mem>6000 && '.$self->o('dbresource').'<'.$self->o('aligner_capacity').'] rusage[mem=6000,'.$self->o('dbresource').'=10:duration=3]"' },
@@ -298,6 +299,11 @@ sub resource_classes {
 
 sub pipeline_analyses {
     my ($self) = @_;
+
+    # Needed to "load" the parameters, i.e. to force them to be substituted
+    # They can then be used in the healthcheck analysis
+    $self->o('max_percent_diff');
+    $self->o('max_percent_diff_patches');
 
     return [
 	    # ---------------------------------------------[Turn all tables except 'genome_db' to InnoDB]---------------------------------------------
@@ -380,7 +386,6 @@ sub pipeline_analyses {
  	       -module     => 'Bio::EnsEMBL::Compara::RunnableDB::PairAligner::ChunkAndGroupDna',
  	       -parameters => {
 			       'MT_only' => $self->o('MT_only'),
-			       'flow_to_store_sequence' => 1,
 			      },
  	       -flow_into => {
  	          2 => [ 'store_sequence' ],
@@ -390,7 +395,10 @@ sub pipeline_analyses {
  	    {  -logic_name => 'store_sequence',
  	       -hive_capacity => 100,
  	       -module     => 'Bio::EnsEMBL::Compara::RunnableDB::PairAligner::StoreSequence',
- 	       -parameters => { },
+               -parameters => {
+                   'dump_min_chunkset_size' => $self->o('dump_min_chunkset_size'),
+                   'dump_min_chunk_size' => $self->o('dump_min_chunk_size'),
+               },
 	       -flow_into => {
  	          -1 => [ 'store_sequence_again' ],
  	       },
@@ -400,7 +408,10 @@ sub pipeline_analyses {
  	    {  -logic_name => 'store_sequence_again',
  	       -hive_capacity => 100,
  	       -module     => 'Bio::EnsEMBL::Compara::RunnableDB::PairAligner::StoreSequence',
- 	       -parameters => { }, 
+               -parameters => {
+                   'dump_min_chunkset_size' => $self->o('dump_min_chunkset_size'),
+                   'dump_min_chunk_size' => $self->o('dump_min_chunk_size'),
+               },
 	       -can_be_empty  => 1,
 	       -rc_name => 'crowd',
   	    },
@@ -415,7 +426,7 @@ sub pipeline_analyses {
 			       1 => [ 'check_no_partial_gabs' ],
 			       2 => [ $self->o('pair_aligner_logic_name')  ],
 			   },
-	       -rc_name => '1Gb',
+	       -rc_name => 'long',
  	    },
  	    {  -logic_name => $self->o('pair_aligner_logic_name'),
  	       -module     => $self->o('pair_aligner_module'),
@@ -424,6 +435,7 @@ sub pipeline_analyses {
 	       -parameters => { 
 			       'pair_aligner_exe' => $self->o('pair_aligner_exe'),
 			      },
+           -wait_for  => [ 'create_pair_aligner_jobs'  ],
 	       -flow_into => {
 			      -1 => [ $self->o('pair_aligner_logic_name') . '_himem1' ],  # MEMLIMIT
 			     },
@@ -435,6 +447,7 @@ sub pipeline_analyses {
 	       -parameters => { 
 			       'pair_aligner_exe' => $self->o('pair_aligner_exe'),
 			      },
+           -wait_for   => [ 'create_pair_aligner_jobs'  ],
  	       -batch_size => $self->o('pair_aligner_batch_size'),
 	       -can_be_empty  => 1,
 	       -rc_name => 'crowd_himem',
@@ -471,7 +484,7 @@ sub pipeline_analyses {
  	    {  -logic_name => 'create_filter_duplicates_jobs', #factory
  	       -module     => 'Bio::EnsEMBL::Compara::RunnableDB::PairAligner::CreateFilterDuplicatesJobs',
  	       -parameters => { },
- 	       -wait_for =>  [ 'update_max_alignment_length_before_FD' ],
+ 	       -wait_for =>  [ 'update_max_alignment_length_before_FD', 'check_not_too_many_blocks' ],
 	        -flow_into => {
 			       2 => { 'filter_duplicates' => INPUT_PLUS() },
 			     },
@@ -516,7 +529,7 @@ sub pipeline_analyses {
  	       -module     => 'Bio::EnsEMBL::Compara::RunnableDB::PairAligner::ChunkAndGroupDna',
  	       -parameters => {
 			       'MT_only' => $self->o('MT_only'),
-			       'flow_to_store_sequence' => 0,
+			       'flow_chunksets' => 0,
 			      },
 	       -flow_into => {
 			      1 => [ 'dump_large_nib_for_chains_factory' ],
@@ -528,8 +541,7 @@ sub pipeline_analyses {
  	       -module     => 'Bio::EnsEMBL::Compara::RunnableDB::PairAligner::DumpDnaCollectionFactory',
  	       -parameters => {
 			       'faToNib_exe' => $self->o('faToNib_exe'),
-			       'dump_nib'=>1,
-			       'dump_min_size' => $self->o('dump_min_size'),
+			       'dump_min_size' => $self->o('dump_min_nib_size'),
                                'MT_only' => $self->o('MT_only'),
 			      },
 	       -hive_capacity => 1,
@@ -542,7 +554,6 @@ sub pipeline_analyses {
  	       -module     => 'Bio::EnsEMBL::Compara::RunnableDB::PairAligner::DumpDnaCollection',
  	       -parameters => {
 			       'faToNib_exe' => $self->o('faToNib_exe'),
-			       'dump_nib'=>1,
                                'overwrite'=>1,
 			      },
 	       -can_be_empty  => 1,
@@ -556,7 +567,6 @@ sub pipeline_analyses {
  	       -module     => 'Bio::EnsEMBL::Compara::RunnableDB::PairAligner::DumpDnaCollection',
  	       -parameters => {
 			       'faToNib_exe' => $self->o('faToNib_exe'),
-			       'dump_nib'=>1,
                                'overwrite'=>1,
 			      },
 	       -hive_capacity => 10,
@@ -583,6 +593,7 @@ sub pipeline_analyses {
 	       -flow_into => {
 			      -1 => [ 'alignment_chains_himem' ],  # MEMLIMIT
 			     },
+               -wait_for   => [ 'create_alignment_chains_jobs' ],
 	       -rc_name => 'crowd',
  	    },
 	    {  -logic_name => 'alignment_chains_himem',
@@ -616,12 +627,10 @@ sub pipeline_analyses {
  	       -module     => 'Bio::EnsEMBL::Compara::RunnableDB::PairAligner::CreateAlignmentNetsJobs',
  	       -parameters => { },
 		-flow_into => {
-			       #'A->1' => [ 'remove_inconsistencies_after_net' ],
-			       #'2->A' => [ 'alignment_nets' ],
 			       1 => [ 'remove_inconsistencies_after_net' ],
 			       2 => [ 'alignment_nets' ],
 			      },
- 	       -wait_for => [ 'update_max_alignment_length_after_chain' ],
+ 	       -wait_for => [ 'update_max_alignment_length_after_chain', 'remove_inconsistencies_after_chain' ],
 	       -rc_name => '1Gb',
  	    },
  	    {  -logic_name => 'alignment_nets',
@@ -648,7 +657,7 @@ sub pipeline_analyses {
 	       -flow_into => {
 			       1 => [ 'update_max_alignment_length_after_net' ],
 			   },
- 	       -wait_for =>  [ 'alignment_nets', 'alignment_nets_himem' ],  # Needed because of bi-directional netting: 2 jobs in create_alignment_nets_jobs can result in 1 job here
+ 	       -wait_for =>  [ 'alignment_nets', 'alignment_nets_himem', 'create_alignment_nets_jobs' ],    # Needed because of bi-directional netting: 2 jobs in create_alignment_nets_jobs can result in 1 job here
 	       -rc_name => '1Gb',
 	    },
  	    {  -logic_name => 'create_filter_duplicates_net_jobs', #factory
