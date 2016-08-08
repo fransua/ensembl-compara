@@ -169,7 +169,6 @@ sub pipeline_analyses {
 return [
 # ------------------------------------- set up the necessary database tables
 
-<<<<<<< HEAD
     {
         -logic_name => 'populate_new_database',
         -module     => 'Bio::EnsEMBL::Compara::RunnableDB::GenomicAlignBlock::PopulateNewDatabase',
