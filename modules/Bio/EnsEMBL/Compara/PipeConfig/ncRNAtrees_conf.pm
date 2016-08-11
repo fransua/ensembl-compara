@@ -319,21 +319,8 @@ sub pipeline_analyses {
                 binary          => 0,
                 n_missing_species_in_tree   => 0,
             },
-            -flow_into          => [ WHEN('#initialise_cafe_pipeline#', 'make_full_species_tree'), WHEN( '!#skip_epo#', 'find_epo_database') ],
+            -flow_into          => [ WHEN('#initialise_cafe_pipeline#', 'make_full_species_tree') ],
             %hc_params,
-        },
-
-# ---------------------------------[find the EPO database that helps defining high/low-coverage species]------------------------------
-
-        {   -logic_name => 'find_epo_database',
-            -module     => 'Bio::EnsEMBL::Compara::RunnableDB::FindMLSS',
-            -parameters => {
-                compara_db   => '#master_db#',
-                method_links => {
-                    EPO_LOW_COVERAGE => 'epo_db',
-                },
-                species_set_name => $self->o('epo_species_set_name'),
-            },
         },
 
 # ---------------------------------------------[load ncRNA and gene members]---------------------------------------------
@@ -603,7 +590,6 @@ sub pipeline_analyses {
                                    'ss_picts_dir'  => $self->o('ss_picts_dir'),
                                    'r2r_exe'       => $self->o('r2r_exe'),
                                   },
-                -failed_job_tolerance =>  30,
                 -rc_name       => '2Gb_job',
             },
 

@@ -53,7 +53,10 @@ sub fetch_input {
 		$anc_end += $mid_size - 2;
 		$anc_start = $anc_start < 1 ? 1 : $anc_start;   # The minimum position on a DnaFrag is 1
 		$anc_end = $anc_end > $dnafrag->length ? $dnafrag->length : $anc_end;    # The maximum position on a DnaFrag is its length
-		my $anc_seq = $dnafrag->slice->sub_Slice($anc_start,$anc_end,$df_strand)->seq;
+		my $anc_seq;
+                $dnafrag->genome_db->db_adaptor->dbc->prevent_disconnect( sub {
+                    $anc_seq = $dnafrag->slice->sub_Slice($anc_start,$anc_end,$df_strand)->seq;
+                } );
 		my @NS=$anc_seq=~/(N)/g;
 		my $ns=join("",@NS);
 		my $ratio = 0;

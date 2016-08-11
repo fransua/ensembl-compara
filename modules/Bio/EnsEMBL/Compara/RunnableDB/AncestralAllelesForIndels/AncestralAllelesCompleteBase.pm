@@ -62,6 +62,31 @@ my %event_type = ('polymorphic_deletion' => 1,
 
 my $show_time = 0; #writes the time for each iteration to a file. Used for development purposes only.
 
+    #=====================================================================
+    # Default values
+    #=====================================================================
+sub param_defaults {
+    return {
+    # Default flank regions for the alignment of the alleles
+        'flank'             => 10,
+
+    # If an alignment is longer than this, skip this indel!
+        'max_alignment_length'  => 100,
+
+    # Old way of outputing the info for the VEP tabix file. Diable this.
+        'verbose_output'    => 0,
+
+    # Location of the Ortheus executable
+        'ortheus_bin'       => '/software/ensembl/compara/OrtheusC/bin/OrtheusC',
+
+    # Default values for selecting the multiple alignment
+        'method_link_type'  => 'EPO',
+        'species_set_name'  => 'primates',
+    #=====================================================================
+    }
+}
+
+
 #
 # set up 
 #
@@ -73,28 +98,6 @@ sub run_cmd {
 
     my $output; #hash to contain all the variables I want to write to the database
 
-    #=====================================================================
-    # Default values
-    #=====================================================================
-
-    # Default flank regions for the alignment of the alleles
-    $self->param('flank', '10') if (!$self->param_is_defined('flank'));
-    
-    # If an alignment is longer than this, skip this indel!
-    $self->param('max_alignment_length', '100') if (!$self->param_is_defined('max_alignment_length'));
-    
-    # Old way of outputing the info for the VEP tabix file. Diable this.
-    $self->param('verbose_output', '0') if (!$self->param_is_defined('verbose_output'));
-    
-    # Location of the Ortheus executable
-    $self->param('ortheus_bin', '/software/ensembl/compara/OrtheusC/bin/OrtheusC') if (!$self->param_is_defined('ortheus_bin'));
-    
-    # Default values for selecting the multiple alignment
-    $self->param('method_link_type', 'EPO') if (!$self->param_is_defined('method_link_type'));
-    $self->param('species_set_name', 'primates') if (!$self->param_is_defined('species_set_name'));
-    #=====================================================================
-    
-    
     #=====================================================================
     # Example parameters (just to test the code or extract example alignments)
     #=====================================================================
@@ -208,11 +211,7 @@ sub run_cmd {
 
     my $dnafrag = $dnafrag_adaptor->fetch_by_GenomeDB_and_name($genome_db, $seq_region);
 
-    #temporary hack to deal with supercontigs until core fixes a bug
-    my $orig_disconnect_when_inactive = $slice_adaptor->dbc->disconnect_when_inactive();
-    if ($dnafrag->coord_system_name eq "supercontig") {
-        $slice_adaptor->dbc->disconnect_when_inactive(0);
-    }
+    $slice_adaptor->dbc->prevent_disconnect( sub {
 
     #Skip if near the start or end of the chromosome
     if ($seq_region_start <= $left) {
@@ -452,9 +451,7 @@ sub run_cmd {
     close OUT if ($verbose);
     close TIME if ($show_time);
 
-    if ($dnafrag->coord_system_name eq "supercontig") {
-        $slice_adaptor->dbc->disconnect_when_inactive($orig_disconnect_when_inactive);
-    }
+    } );
 
     $self->param('output', $output);
 
