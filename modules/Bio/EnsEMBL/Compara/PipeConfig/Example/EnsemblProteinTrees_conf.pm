@@ -244,7 +244,7 @@ sub default_options {
 
         # Add the database location of the previous Compara release. Leave commented out if running the pipeline without reuse
         # NOTE: This most certainly has to change every-time you run the pipeline. Only commit the change if it's the production run
-        'prev_rel_db' => 'mysql://ensro@compara5:3306/cc21_ensembl_compara_84',
+        'prev_rel_db' => 'mysql://ensro@compara5:3306/wa2_ensembl_compara_85',
 
         # How will the pipeline create clusters (families) ?
         # Possible values: 'blastp' (default), 'hmm', 'hybrid'
@@ -330,7 +330,6 @@ sub resource_classes {
          '8Gb_64c_mpi'  => {'LSF' => '-q parallel -a openmpi -n 64 -M8000 -R"select[mem>8000] rusage[mem=8000] same[model] span[ptile=16]"' },
          '32Gb_64c_mpi' => {'LSF' => '-q parallel -a openmpi -n 64 -M32000 -R"select[mem>32000] rusage[mem=32000] same[model] span[ptile=16]"' },
 
-         '4Gb_job_gpfs'      => {'LSF' => '-C0 -M4000 -R"select[mem>4000] rusage[mem=4000] select[gpfs]"' },
     };
 }
 

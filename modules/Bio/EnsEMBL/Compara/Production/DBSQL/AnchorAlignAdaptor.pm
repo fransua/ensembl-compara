@@ -112,11 +112,6 @@ sub store_mapping_hits {
 	my $batch_records = shift;
 	throw() unless($batch_records);
 	
-        # FIXME: disconnect_when_inactive(): why do we need a LOCK here ?
-	my $dcs = $self->dbc->disconnect_when_inactive();
-	$self->dbc->disconnect_when_inactive(0);
-	$self->dbc->do("LOCK TABLE anchor_align WRITE");
-
 	my $query = qq{
 	INSERT INTO anchor_align (method_link_species_set_id, anchor_id, dnafrag_id, dnafrag_start,	
 	dnafrag_end, dnafrag_strand, score, num_of_organisms, num_of_sequences, evalue)
@@ -127,8 +122,6 @@ sub store_mapping_hits {
 		$sth->execute( @{ $anchor_hits } );
 	}	
 	$sth->finish;
-	$self->dbc->do("UNLOCK TABLES");
-	$self->dbc->disconnect_when_inactive($dcs);
 	return 1;
 }
 

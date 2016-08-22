@@ -484,6 +484,7 @@ sub pipeline_wide_parameters {  # these parameter values are visible to all anal
         'hmm_library_basedir'   => $self->o('hmm_library_basedir'),
 
         'clustering_mode'   => $self->o('clustering_mode'),
+        'reuse_level'       => $self->o('reuse_level'),
         'goc_threshold'                 => $self->o('goc_threshold'),
         'reuse_goc'                     => $self->o('reuse_goc'),
         'binary_species_tree_input_file'   => $self->o('binary_species_tree_input_file'),
@@ -595,6 +596,8 @@ sub core_pipeline_analyses {
         {   -logic_name => 'backbone_fire_clustering',
             -module     => 'Bio::EnsEMBL::Hive::RunnableDB::DatabaseDumper',
             -parameters => {
+                'table_list'    => 'peptide_align_feature_%',
+                'exclude_list'  => 1,
                 'output_file'   => '#dump_dir#/snapshot_3_before_clustering.sql.gz',
             },
             -flow_into  => {
@@ -1179,8 +1182,8 @@ sub core_pipeline_analyses {
             -module     => 'Bio::EnsEMBL::Compara::RunnableDB::GenomeDBFactory',
             -parameters => {
                 'polyploid_genomes' => 0,
-                'component_genomes' => $self->o('reuse_level') eq 'members' ? 0 : 1,
-                'normal_genomes'    => $self->o('reuse_level') eq 'members' ? 0 : 1,
+                'component_genomes' => '#expr( (#reuse_level# eq "members") ? 0 : 1 )expr#',
+                'normal_genomes'    => '#expr( (#reuse_level# eq "members") ? 0 : 1 )expr#',
                 'species_set_id'    => '#reuse_ss_id#',
             },
             -flow_into => {
@@ -1193,7 +1196,7 @@ sub core_pipeline_analyses {
             -module     => 'Bio::EnsEMBL::Compara::RunnableDB::GenomeDBFactory',
             -parameters => {
                 'polyploid_genomes' => 0,
-                'species_set_id'    => $self->o('reuse_level') eq 'members' ? undef : '#nonreuse_ss_id#',
+                'species_set_id'    => '#expr( (#reuse_level# eq "members") ? undef : #nonreuse_ss_id# )expr#',
             },
             -flow_into => {
                 2 => [ 'paf_create_empty_table' ],
@@ -1325,7 +1328,7 @@ sub core_pipeline_analyses {
                              'hmmer_path'          => $self->o('hmmer2_home'),
                             },
              -hive_capacity => $self->o('HMMer_classifyPantherScore_capacity'),
-             -rc_name => '4Gb_job_gpfs',
+             -rc_name => '4Gb_job',
             },
 
             {
@@ -1334,6 +1337,7 @@ sub core_pipeline_analyses {
              -parameters => {
                  'division'     => $self->o('division'),
                  'extra_tags_file'  => $self->o('extra_model_tags_file'),
+                 'only_canonical'   => 1,
              },
              -rc_name => '8Gb_job',
              -flow_into => {
@@ -1404,6 +1408,7 @@ sub core_pipeline_analyses {
             -parameters => {
                 'outgroups'     => $self->o('outgroups'),
             },
+            -rc_name       => '4Gb_job',
             -hive_capacity => $self->o('reuse_capacity'),
             -flow_into  => [ 'hcluster_run' ],
         },

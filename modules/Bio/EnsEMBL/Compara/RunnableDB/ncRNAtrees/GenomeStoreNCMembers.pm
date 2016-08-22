@@ -96,10 +96,6 @@ sub fetch_input {
     my $core_db = $genome_db->db_adaptor() or die "Can't connect to genome database for id=$genome_db_id";
     $self->param('core_db', $core_db);
 
-       # GeneMember and SeqMember adaptors
-    $self->param('gene_member_adaptor', $self->compara_dba->get_GeneMemberAdaptor);
-    $self->param('seq_member_adaptor',  $self->compara_dba->get_SeqMemberAdaptor);
-
     return;
 }
 
@@ -154,31 +150,11 @@ sub run {
 }
 
 
-=head2 write_output
-
-    Create downstream jobs that will be loading individual ncRNA members
-
-=cut
-
-# sub write_output {
-#     my $self = shift @_;
-
-    # my $genome_db_id    = $self->param('genome_db_id');
-
-    # foreach my $stable_id (@{ $self->param('stable_ids') }) {
-    #     $self->dataflow_output_id( {
-    #         'genome_db_id'    => $genome_db_id,
-    #         'stable_id'       => $stable_id,
-    #     }, 2);
-    # }
-#}
-
 sub store_ncrna_gene {
     my ($self, $gene) = @_;
 
-    my $core_db = $self->param('core_db');
-    my $gene_member_adaptor = $self->param('gene_member_adaptor');
-    my $seq_member_adaptor  = $self->param('seq_member_adaptor');
+    my $gene_member_adaptor = $self->compara_dba->get_GeneMemberAdaptor();
+    my $seq_member_adaptor = $self->compara_dba->get_SeqMemberAdaptor();
 
     my $longest_ncrna_member;
     my $max_ncrna_length = 0;
@@ -195,7 +171,7 @@ sub store_ncrna_gene {
         next if ($merged_short_and_long_ncRNA and ($transcript->biotype eq 'lincRNA'));
 
         if (defined $transcript->translation) {
-            warn ("Translation exists for ncRNA transcript ", $transcript->stable_id, "(dbID=", transcript->dbID. ")\n");
+            warn ("Translation exists for ncRNA transcript ", $transcript->stable_id, "(dbID=", $transcript->dbID. ")\n");
             next;
         }
 

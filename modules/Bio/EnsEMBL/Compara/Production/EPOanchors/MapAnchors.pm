@@ -61,6 +61,11 @@ use Data::Dumper;
 use base ('Bio::EnsEMBL::Compara::RunnableDB::BaseRunnable');
 
 
+sub pre_cleanup {
+	my ($self) = @_;
+        $self->compara_dba->dbc->do('DELETE anchor_align FROM anchor_align JOIN dnafrag USING (dnafrag_id) WHERE anchor_id BETWEEN ? AND ? AND genome_db_id = ?', undef, $self->param('min_anchor_id'), $self->param('max_anchor_id'), $self->param('genome_db_id'));
+}
+
 sub fetch_input {
 	my ($self) = @_;
         $self->dbc->disconnect_if_idle();
@@ -72,10 +77,11 @@ sub fetch_input {
         my $sth = $anchor_dba->dbc->prepare("SELECT anchor_id, sequence FROM anchor_sequence WHERE anchor_id IN ($str_anchor_ids)");
         $sth->execute();
         my $query_file = $self->worker_temp_directory  . "anchors." . join ("-", $anchor_ids->[0], $anchor_ids->[-1] );
-	open F, ">$query_file" || throw("Couldn't open $query_file");
+	open(my $fh, '>', $query_file) || throw("Couldn't open $query_file");
 	foreach my $anc_seq( @{ $sth->fetchall_arrayref } ){
-		print F ">", $anc_seq->[0], "\n", $anc_seq->[1], "\n";
+		print $fh ">", $anc_seq->[0], "\n", $anc_seq->[1], "\n";
 	}
+        close($fh);
         $sth->finish;
         $anchor_dba->dbc->disconnect_if_idle;
 	$self->param('query_file', $query_file);
@@ -94,7 +100,7 @@ sub run {
 	my $command = join(" ", $program, $option_st, $query_file, $target_file); 
 	print $command, "\n";
 	my $out_fh;
-	open( $out_fh, "$command |" ) or throw("Error opening exonerate command: $? $!"); #run mapping program
+	open( $out_fh, '-|', $command ) or throw("Error opening exonerate command: $? $!"); #run mapping program
 	$self->param('out_file', $out_fh);
 }
 
