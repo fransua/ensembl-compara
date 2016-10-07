@@ -78,14 +78,8 @@ sub run {
         $self->input_job->autoflow(0);
         $self->complete_early(sprintf("Family too big for normal branch (%s bps) -- Only FastTrees will be generated\n", $self->param('tag_residue_count')));
     }
-    if (($self->param('tag_residue_count') > 40000) && $self->param('inhugemem')) { ## Big family -- queue in hugemem
-        $self->dataflow_output_id (
-                                   {
-                                    'gene_tree_id' => $self->param('gene_tree_id'),
-                                    'alignment_id' => $self->param('alignment_id'),
-                                    'inhugemem' => 1,
-                                   }, -1
-                                  );
+    if (($self->param('tag_residue_count') > 40000) && !$self->param('inhugemem')) { ## Big family -- queue in hugemem
+        $self->dataflow_output_id(undef, -1);
         # Should we die here? Nothing more to do in the Runnable?
         $self->input_job->autoflow(0);
         $self->complete_early(sprintf("Re-scheduled in hugemem queue (%s bps)\n", $self->param('tag_residue_count')));
@@ -351,6 +345,7 @@ sub store_fasta_alignment {
 #    $self->compara_dba->get_AlignedMemberAdaptor->store($aln);
     $self->compara_dba->get_GeneAlignAdaptor->store($aln);
     $self->param('alignment_id', $aln->dbID);
+    $self->param('gene_tree')->store_tag('genomic_alignment_gene_align_id', $aln->dbID);
     return;
 }
 

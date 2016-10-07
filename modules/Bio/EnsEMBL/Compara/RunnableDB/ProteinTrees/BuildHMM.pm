@@ -117,7 +117,10 @@ sub fetch_input {
         $self->complete_early(sprintf('No HMM will be buid (only %d members).', scalar(@$members)));
     }
 
+    Bio::EnsEMBL::Compara::Utils::Preloader::load_all_sequences($self->compara_dba->get_SequenceAdaptor, $protein_tree->member_type, $members);
+
     $self->param('protein_align', Bio::EnsEMBL::Compara::AlignedMemberSet->new(-dbid => $self->param('gene_tree_id'), -members => $members));
+    $self->param('protein_align')->{'_member_type'} = $protein_tree->member_type;
 
     $self->require_executable('hmmbuild_exe');
     $self->require_executable('hmmcalibrate_exe') if $self->param('hmmer_version') eq '2';
@@ -157,6 +160,7 @@ sub run {
 sub write_output {
     my $self = shift @_;
 
+    $self->db->dbc->disconnect_if_idle();
     $self->store_hmmprofile($self->param('hmm_file'), $self->param('protein_tree')->stable_id || $self->param('gene_tree_id'));
 }
 

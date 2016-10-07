@@ -54,7 +54,7 @@ use Bio::EnsEMBL::Registry;
 
 sub fetch_input {
 	my $self = shift;
-  print " START OF Calculate_goc_perc_above_threshold-------------- mlss_id ------>>>>>>\n\n  ", $self->param('goc_mlss_id'), $self->param_required('goc_threshold'), "  ---\n\n" if ($self->debug);
+  print " START OF Calculate_goc_perc_above_threshold-------\n  mlss_id  :    ", $self->param('goc_mlss_id'), "\n goc_threshold  :  ", $self->param_required('goc_threshold'), "  ---\n\n" if ($self->debug);
   my $mlss_id = $self->param('goc_mlss_id');
   my $query = "SELECT goc_score , COUNT(*) FROM homology where method_link_species_set_id =$mlss_id GROUP BY goc_score";
   my $goc_distribution = $self->compara_dba->dbc->db_handle->selectall_arrayref($query);
@@ -70,13 +70,25 @@ sub fetch_input {
 sub run {
   my $self = shift;
 
-  $self->param('perc_above_thresh', $self->_calculate_perc());
-  print "\n\n"  , $self->param('perc_above_thresh') , "\n\n" if ( $self->debug >3 );
+  if ( scalar @{$self->param('goc_dist')} == 1 ) {
+    if ( $self->param('goc_dist')->[0]->[0] eq '0' ) {
+      print "\n all the goc score are zeros \n" if ( $self->debug);
+      $self->param('perc_above_thresh', '0');
+    }
+    else {
+      print "\n all the goc score are Nul \n" if ( $self->debug);
+      $self->param('perc_above_thresh', 'NULL');
+    }
+  }
+  else { 
+    $self->param('perc_above_thresh', $self->_calculate_perc());
+    print "\n\n"  , $self->param('perc_above_thresh') , "\n\n" if ( $self->debug >3 );
+  }
 }
 
 sub write_output {
   	my $self = shift @_;
-    print $self->param('thresh') , "  <<<<------ goc_threshold "if ( $self->debug >3 );
+    print $self->param('thresh') , "  :  goc_threshold \n" , $self->param('perc_above_thresh') , "  :  perc_above_thresh \n " if ( $self->debug >3 );
     #goc threshold need to be dataflow'd  beacuse if it is given a default value by the user this would not have been dataflow'd atleast once, hence the next runnable after this will not be able to access it, causing failure.
     $self->dataflow_output_id( {'perc_above_thresh' => $self->param('perc_above_thresh'), 'goc_dist' => $self->param('goc_dist'), 'goc_threshold' => $self->param('thresh')} , 1);
 }
@@ -98,7 +110,12 @@ sub _calculate_perc {
 
     }
   }
-
+  if (!$total) {
+    #if all the goc scores are zero
+    #we will only get here if there both Null and zero goc scores
+    print "\n all the goc score are either zeros or nulls \n" if ( $self->debug);
+    return '0';
+  }
   my $perc_above_thresh = ($above_thresh_total/$total) * 100;
   return $perc_above_thresh;
 }

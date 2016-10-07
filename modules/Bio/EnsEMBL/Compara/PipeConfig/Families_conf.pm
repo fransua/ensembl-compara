@@ -219,7 +219,7 @@ sub pipeline_analyses {
             },
             -flow_into => {
                 '2->A' => [ 'copy_table' ],
-                'A->1' => [ 'offset_and_innodbise_tables' ],  # backbone
+                'A->1' => [ 'offset_tables' ],  # backbone
             },
         },
 
@@ -227,29 +227,17 @@ sub pipeline_analyses {
             -module        => 'Bio::EnsEMBL::Hive::RunnableDB::MySQLTransfer',
             -parameters    => {
                 'mode'          => 'overwrite',
+                'filter_cmd'    => 'sed "s/ENGINE=MyISAM/ENGINE=InnoDB/"',
             },
             -analysis_capacity => 10,
         },
 
-        {   -logic_name => 'offset_and_innodbise_tables',
-            -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
+        {   -logic_name => 'offset_tables',
+            -module     => 'Bio::EnsEMBL::Compara::RunnableDB::GeneTrees::OffsetTables',
             -parameters => {
-                'sql'   => [
-                    'ALTER TABLE sequence                   AUTO_INCREMENT=200000001',
-                    'ALTER TABLE gene_member                AUTO_INCREMENT=200000001',
-                    'ALTER TABLE seq_member                 AUTO_INCREMENT=200000001',
-                    'ALTER TABLE method_link                ENGINE=InnoDB',
-                    'ALTER TABLE ncbi_taxa_node             ENGINE=InnoDB',
-                    'ALTER TABLE ncbi_taxa_name             ENGINE=InnoDB',
-                    'ALTER TABLE species_set_header         ENGINE=InnoDB',
-                    'ALTER TABLE method_link_species_set    ENGINE=InnoDB',
-                    'ALTER TABLE dnafrag                    ENGINE=InnoDB',
-                    'ALTER TABLE dnafrag                    AUTO_INCREMENT=200000000000001',
-                ],
+                'range_index'   => 2,
             },
-            -flow_into => {
-                    1 => [ 'genomedb_factory' ],
-            },
+            -flow_into => [ 'genomedb_factory' ],
         },
 
         {   -logic_name => 'genomedb_factory',
@@ -626,7 +614,7 @@ sub pipeline_analyses {
             -hive_capacity => 20, # to enable parallel branches
             -flow_into => {
                 1 => WHEN (
-                    '#hmm_clustering#' => 'write_member_counts',
+                    '#hmm_clustering#' => 'warehouse_working_directory',
                     ELSE 'insert_redundant_peptides',
                 )
             },
@@ -671,17 +659,9 @@ sub pipeline_analyses {
                 'release'     => $self->o('ensembl_release'),
             },
             -flow_into => {
-                1 => [ 'write_member_counts' ],
+                1 => [ 'warehouse_working_directory' ],
             },
             -rc_name => '16GigMem',    # NB: make sure you give it enough memory or it will crash
-        },
-
-        {   -logic_name     => 'write_member_counts',
-            -module         => 'Bio::EnsEMBL::Hive::RunnableDB::DbCmd',
-            -parameters     => {
-                'input_file'    => $self->o('ensembl_cvs_root_dir').'/ensembl-compara/scripts/production/populate_member_production_counts_table.sql',
-            },
-            -flow_into => [ 'warehouse_working_directory' ],
         },
 
         {   -logic_name => 'warehouse_working_directory',

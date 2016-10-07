@@ -221,17 +221,14 @@ sub pipeline_analyses {
         },
 
         {   -logic_name => 'offset_tables',
+            -module     => 'Bio::EnsEMBL::Compara::RunnableDB::GeneTrees::OffsetTables',
+            -flow_into  => [ 'offset_more_tables' ],
+        },
+
+        {   -logic_name => 'offset_more_tables',
             -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
             -parameters => {
                 'sql'   => [
-                    'ALTER TABLE gene_member       AUTO_INCREMENT=100000001',
-                    'ALTER TABLE seq_member        AUTO_INCREMENT=100000001',
-                    'ALTER TABLE sequence          AUTO_INCREMENT=100000001',
-                    'ALTER TABLE homology          AUTO_INCREMENT=100000001',
-                    'ALTER TABLE gene_align        AUTO_INCREMENT=100000001',
-                    'ALTER TABLE gene_tree_node    AUTO_INCREMENT=100000001',
-                    'ALTER TABLE CAFE_gene_family  AUTO_INCREMENT=100000001',
-                    'ALTER TABLE CAFE_species_gene AUTO_INCREMENT=100000001',
                     'ALTER TABLE species_set_header      AUTO_INCREMENT=10000001',
                     'ALTER TABLE method_link_species_set AUTO_INCREMENT=10000001',
                 ],
@@ -413,7 +410,7 @@ sub pipeline_analyses {
               -parameters         => {
                                       mode            => 'global_tree_set',
                                      },
-              -flow_into          => [ 'write_stn_tags', 'write_member_counts', 'homology_stats_factory', WHEN('#initialise_cafe_pipeline#', 'CAFE_table') ],
+              -flow_into          => [ 'write_stn_tags', 'homology_stats_factory', WHEN('#initialise_cafe_pipeline#', 'CAFE_table') ],
               %hc_params,
             },
 
@@ -429,13 +426,6 @@ sub pipeline_analyses {
             -module         => 'Bio::EnsEMBL::Compara::RunnableDB::GeneTrees::HTMLReport',
             -parameters     => {
                 'email' => $self->o('email'),
-            },
-        },
-
-        {   -logic_name     => 'write_member_counts',
-            -module         => 'Bio::EnsEMBL::Hive::RunnableDB::DbCmd',
-            -parameters     => {
-                'input_file'    => $self->o('ensembl_cvs_root_dir').'/ensembl-compara/scripts/production/populate_member_production_counts_table.sql',
             },
         },
 
@@ -578,9 +568,14 @@ sub pipeline_analyses {
             },
 
             {   -logic_name    => 'tree_entry_point',
-                -module        => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
+                -module        => 'Bio::EnsEMBL::Compara::RunnableDB::GeneTrees::LoadTags',
+                -parameters    => {
+                                   'tags'  => {
+                                       'model_id'          => '',
+                                   },
+                                  },
                 -flow_into => {
-                               '1->A' => [ 'genomic_alignment', 'infernal' ],
+                               '1->A' => [ 'genomic_alignment', WHEN('#tree_model_id#' => 'infernal') ],
                                'A->1' => [ 'treebest_mmerge' ],
                               },
             },
@@ -647,7 +642,22 @@ sub pipeline_analyses {
                              'raxmlLight_exe'        => $self->o('raxmlLight_exe'),
                              'raxml_number_of_cores' => $self->o('raxml_number_of_cores'),
                             },
+            -flow_into => {
+                           -1 => ['fast_trees_himem'],
+                          },
              -rc_name => '8Gb_long_ncores_job',
+            },
+            {
+             -logic_name => 'fast_trees_himem',
+             -module => 'Bio::EnsEMBL::Compara::RunnableDB::ncRNAtrees::NCFastTrees',
+             -analysis_capacity => $self->o('fast_trees_capacity'),
+             -parameters => {
+                             'fasttree_exe'          => $self->o('fasttree_exe'),
+                             'parsimonator_exe'      => $self->o('parsimonator_exe'),
+                             'raxmlLight_exe'        => $self->o('raxmlLight_exe'),
+                             'raxml_number_of_cores' => $self->o('raxml_number_of_cores'),
+                            },
+             -rc_name => '32Gb_long_ncores_job',
             },
 
         {
@@ -659,9 +669,30 @@ sub pipeline_analyses {
                             'mafft_exe' => $self->o('mafft_exe'),
                             'raxml_exe' => $self->o('raxml_exe'),
                             'prank_exe' => $self->o('prank_exe'),
+                            'inhugemem' => 1,
                            },
          -rc_name => '8Gb_ncores_job',
          -flow_into => {
+                        3 => [ 'fast_trees' ],
+                        2 => [ 'genomic_tree_himem' ],
+                        -1 => [ 'genomic_alignment_hugemem' ],
+                        -2 => [ 'genomic_alignment_basement_himem' ],
+                       },
+        },
+        {
+         -logic_name => 'genomic_alignment_hugemem',
+         -module => 'Bio::EnsEMBL::Compara::RunnableDB::ncRNAtrees::NCGenomicAlignment',
+         -analysis_capacity => $self->o('genomic_alignment_capacity'),
+            -parameters => {
+                            'raxml_number_of_cores' => $self->o('raxml_number_of_cores'),
+                            'mafft_exe' => $self->o('mafft_exe'),
+                            'raxml_exe' => $self->o('raxml_exe'),
+                            'prank_exe' => $self->o('prank_exe'),
+                            'inhugemem' => 1,
+                           },
+         -rc_name => '32Gb_ncores_job',
+         -flow_into => {
+                        3 => [ 'fast_trees_himem' ],
                         2 => [ 'genomic_tree_himem' ],
                         -2 => [ 'genomic_alignment_basement_himem' ],
                        },
@@ -675,9 +706,11 @@ sub pipeline_analyses {
                             'mafft_exe' => $self->o('mafft_exe'),
                             'raxml_exe' => $self->o('raxml_exe'),
                             'prank_exe' => $self->o('prank_exe'),
+                            'inhugemem' => 1,
                            },
          -rc_name => '8Gb_basement_ncores_job',
          -flow_into => {
+                        3 => [ 'fast_trees' ],
                         2 => [ 'genomic_tree_himem' ],
                        },
         },
@@ -722,8 +755,21 @@ sub pipeline_analyses {
             -parameters => {
                             'tag_split_genes'   => 0,
             },
-            -flow_into  => [ 'hc_tree_homologies' ],
+            -flow_into  => {
+                1 => [ 'hc_tree_homologies' ],
+                -1 => [ 'orthotree_himem' ],
+            },
            -rc_name => '250Mb_job',
+        },
+
+        {   -logic_name    => 'orthotree_himem',
+            -module        => 'Bio::EnsEMBL::Compara::RunnableDB::GeneTrees::OrthoTree',
+            -analysis_capacity => $self->o('orthotree_capacity'),
+            -parameters => {
+                            'tag_split_genes'   => 0,
+            },
+            -flow_into  => [ 'hc_tree_homologies' ],
+           -rc_name => '500Mb_job',
         },
 
         {   -logic_name    => 'ktreedist',

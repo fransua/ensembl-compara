@@ -151,7 +151,7 @@ sub run {
 
 
 sub store_ncrna_gene {
-    my ($self, $gene) = @_;
+    my ($self, $gene, $dnafrag) = @_;
 
     my $gene_member_adaptor = $self->compara_dba->get_GeneMemberAdaptor();
     my $seq_member_adaptor = $self->compara_dba->get_SeqMemberAdaptor();
@@ -176,11 +176,12 @@ sub store_ncrna_gene {
         }
 
         print STDERR "   transcript " . $transcript->stable_id  if ($self->debug);
-        my $fasta_description = $self->fasta_description($gene, $transcript);
+        my $fasta_description = $self->_ncrna_description($gene, $transcript);
         next unless (defined $fasta_description);
 
         my $ncrna_member = Bio::EnsEMBL::Compara::SeqMember->new_from_Transcript(
                                                                              -transcript => $transcript,
+                                                                             -dnafrag => $dnafrag,
                                                                              -genome_db => $self->param('genome_db'),
                                                                             );
         $ncrna_member->description($fasta_description);
@@ -188,7 +189,11 @@ sub store_ncrna_gene {
         print STDERR "SEQMEMBER: ", $ncrna_member->description, "    ... ", $ncrna_member->display_label, "\n" if ($self->debug);
 
         print STDERR  " => ncrna_member " . $ncrna_member->stable_id if ($self->debug);
-        my $transcript_spliced_seq = $transcript->spliced_seq;
+        my $transcript_spliced_seq = $ncrna_member->sequence;
+        if ($transcript_spliced_seq =~ /^N+$/i) {
+            $self->warning($transcript->stable_id . " cannot be loaded because its sequence is only composed of Ns");
+            next;
+        }
 
         # store gene_member here only if at least one ncRNA is to be loaded for the gene
         if ($self->param('store_genes') and (! $gene_member_stored)) {
@@ -196,6 +201,7 @@ sub store_ncrna_gene {
 
             $gene_member = Bio::EnsEMBL::Compara::GeneMember->new_from_Gene(
                                                                             -gene => $gene,
+                                                                            -dnafrag => $dnafrag,
                                                                             -genome_db => $self->param('genome_db'),
                                                                            );
             print STDERR " => gene_member " . $gene_member->stable_id if ($self->debug);
@@ -222,9 +228,10 @@ sub store_ncrna_gene {
         $seq_member_adaptor->_set_member_as_canonical($longest_ncrna_member); ## Watchout merged genes!
     }
 
+    return $gene_member;
 }
 
-sub fasta_description {
+sub _ncrna_description {
     my ($self, $gene, $transcript) = @_;
     my $acc = 'NULL';
     my $biotype;

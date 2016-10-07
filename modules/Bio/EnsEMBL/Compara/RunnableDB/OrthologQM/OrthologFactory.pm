@@ -41,7 +41,7 @@ limitations under the License.
 
     Example run
 
-  standaloneJob.pl Bio::EnsEMBL::Compara::RunnableDB::OrthologQM::OrthologFactory -goc_mlss_id <goc_mlss id>
+  standaloneJob.pl Bio::EnsEMBL::Compara::RunnableDB::OrthologQM::OrthologFactory -goc_mlss_id <goc_mlss id> -compara_db <>
 =cut
 
 package Bio::EnsEMBL::Compara::RunnableDB::OrthologQM::OrthologFactory;
@@ -63,6 +63,7 @@ use Bio::EnsEMBL::Registry;
 
 sub fetch_input {
 	my $self = shift;
+#	$self->debug(4);
 	print " Bio::EnsEMBL::Compara::RunnableDB::OrthologQM::Prepare_Orthologs ----------------------------- START\n\n\n" if ( $self->debug );
 	print "mlss_id is ------------------  ", $self->param_required('goc_mlss_id'), " ------------- \n\n" if ( $self->debug );
 	print Dumper($self->compara_dba) if ( $self->debug );
@@ -84,6 +85,8 @@ sub fetch_input {
 
     $self->dbc and $self->dbc->disconnect_if_idle();
 	my $homologs = $self->param('homolog_adaptor')->fetch_all_by_MethodLinkSpeciesSet($mlss);
+	print "This is the returned homologs \n " if ( $self->debug >4);
+	print Dumper($homologs) if ( $self->debug >4); 
 	$self->param('ref_species_dbid', $species1_dbid);
 	$self->param('non_ref_species_dbid', $species2_dbid);
 	$self->param( 'ortholog_objects', $homologs );
@@ -103,23 +106,27 @@ sub run {
 	my $ref_ortholog_info_hashref;
 	my $non_ref_ortholog_info_hashref;
 	my $c = 0;
-	
+	my $ref_species_dbid = $self->param('ref_species_dbid');
+	my $non_ref_species_dbid = $self->param('non_ref_species_dbid');
 	while ( my $ortholog = shift( @{ $self->param('ortholog_objects') } ) ) {
-		my $ref_gene_member = $ortholog->get_all_GeneMembers($self->param('ref_species_dbid'))->[0];
-		print $ref_gene_member , "\n\n" if ( $self->debug >3 );
-		my $non_ref_gene_member = $ortholog->get_all_GeneMembers($self->param('non_ref_species_dbid'))->[0];
-		print $non_ref_gene_member , "\n\n" if ( $self->debug >3 );
+		my $ortholog_dbID = $ortholog->dbID();
+		my $ref_gene_member = $ortholog->get_all_GeneMembers($ref_species_dbid)->[0];
+		print $ref_gene_member->dbID() , "\n\n" if ( $self->debug >3 );
+		die "this homolog  : $ortholog_dbID , appears to not have a gene member for this genome_db_id : $ref_species_dbid \n" unless defined $ref_gene_member;
+		my $non_ref_gene_member = $ortholog->get_all_GeneMembers($non_ref_species_dbid)->[0];
+		print $non_ref_gene_member->dbID() , "\n\n" if ( $self->debug >3 );
+		die "this homolog  : $ortholog_dbID , appears to not have a gene member for this genome_db_id : $non_ref_species_dbid \n" unless defined $non_ref_gene_member;
 
-		if ($ref_gene_member->get_canonical_SeqMember()->source_name() eq "ENSEMBLPEP") {
+		if ($ref_gene_member->get_canonical_SeqMember()->source_name() =~ "PEP") {
 			$ref_ortholog_info_hashref->{$ref_gene_member->dnafrag_id()}{$ortholog->dbID()} = $ref_gene_member->dnafrag_start();
 		}
 
-		if ($non_ref_gene_member->get_canonical_SeqMember()->source_name() eq "ENSEMBLPEP") {
+		if ($non_ref_gene_member->get_canonical_SeqMember()->source_name() =~ "PEP") {
 			$non_ref_ortholog_info_hashref->{$non_ref_gene_member->dnafrag_id()}{$ortholog->dbID()} = $non_ref_gene_member->dnafrag_start();
 			$c++;
 		}
 		
-#		last if $c >= 100;
+#		last if $c >= 10;
 	}
 
 	print " \n remove chromosome or scaffolds with only 1 gene--------------------------START\n\n" if ( $self->debug );
@@ -145,7 +152,7 @@ sub run {
 	print $self->param('ref_species_dbid'), "  -------------------------------------------------------------ref_ortholog_info_hashref\n" if ( $self->debug );
 	print Dumper($ref_ortholog_info_hashref) if ( $self->debug );
 
-	print $self->param('non_ref_species_dbid'), "  -------------------------------------------------------------non_ref_ortholog_info_hashref\n", $self->param('goc_threshold'), " <<<<-------- goc goc_threshold \n" if ( $self->debug );
+	print $self->param('non_ref_species_dbid'), "  -------------------------------------------------------------non_ref_ortholog_info_hashref\n" if ( $self->debug );
 	print Dumper($non_ref_ortholog_info_hashref) if ( $self->debug >3 );
 
 	$self->dataflow_output_id( {'ortholog_info_hashref' => $ref_ortholog_info_hashref, 'ref_species_dbid' => $self->param('ref_species_dbid'), 'non_ref_species_dbid' => $self->param('non_ref_species_dbid')} , 2 );

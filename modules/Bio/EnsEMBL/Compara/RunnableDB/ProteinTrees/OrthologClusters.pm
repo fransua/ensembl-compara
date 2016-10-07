@@ -38,9 +38,6 @@ example:
 
 standaloneJob.pl Bio::EnsEMBL::Compara::RunnableDB::ProteinTrees::OrthologClusters
 
-=head1 SYNOPSIS
-
-
 =head1 AUTHORSHIP
 
 Ensembl Team. Individual contributions can be found in the GIT log.
@@ -61,7 +58,7 @@ use Bio::EnsEMBL::Compara::Graph::ConnectedComponentGraphs;
 use base ('Bio::EnsEMBL::Compara::RunnableDB::GeneTrees::StoreClusters');
 use Data::Dumper;
 
-=head
+=head2
 sub param_defaults {
 
     return {
@@ -76,7 +73,8 @@ sub param_defaults {
     };
 }
 
-=cut 
+=cut
+
 =head2 fetch_input
 
 	Description: pull orthologs for all pairwise combination of species in the list of given species
@@ -138,9 +136,9 @@ sub _buildConnectedComponents {
     my %allclusters = ();
     $self->param('allclusters', \%allclusters);
     while ( my $ortholog = shift( @{ $ortholog_objects } ) ) {
-		my $gene_members = $ortholog->get_all_GeneMembers();
-		my $seq_mid1 = $gene_members->[0]->get_canonical_SeqMember()->dbID;
-		my $seq_mid2 = $gene_members->[1]->get_canonical_SeqMember()->dbID;
+		my $gene_members = $ortholog->get_all_Members();
+		my $seq_mid1 = $gene_members->[0]->dbID;
+		my $seq_mid2 = $gene_members->[1]->dbID;
 		print "seq mem ids   :   $seq_mid1     :    $seq_mid2   \n " if $self->debug() ;
 		$self->param('connected_split_genes')->add_connection($seq_mid1, $seq_mid2);
 		$c++;

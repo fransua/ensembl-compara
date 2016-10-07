@@ -63,6 +63,7 @@ FEATURES
 * mlss_ID (genomic align features for this MLSS_id)
 * nets_ID (blastz-nets, that is *chained* nets for this MLSS id) 
 * ce_ID (constrained elements for this MLSS_id)
+* cs_ID (conservation scores for this MLSS_id)
 (* mlss shows all the method_link_types)
 (* mlss_METHOD_LINK_TYPE shows all the MLSS of this type)
 
@@ -158,6 +159,7 @@ my $mlss;
 my $dnafrag_adaptor = $compara_dba ? $compara_dba->get_DnaFragAdaptor : undef;
 my $track_name;
 my $description;
+my $extra_desc = 'useScore=0';
 my $version = $reg->get_adaptor($species, "core", "MetaContainer")->get_schema_version();
 
 if ($feature =~ /^top/) {
@@ -210,8 +212,13 @@ if ($feature =~ /^top/) {
   $description = "$species_name regulatory features in Ensembl $version";
 } elsif ($feature =~ /^ce_?(\d+)/) {
   $mlss = $compara_dba->get_MethodLinkSpeciesSetAdaptor->fetch_by_dbID($1);
-  $track_name = "gerp.".($mlss->species_set->get_value_for_tag('name') || $1).".$species_name.e$version";
+  $track_name = "gerp_elements.".($mlss->species_set->name || $1).".$species_name.e$version";
   $description = $mlss->name." on $species_name in Ensembl $version";
+} elsif ($feature =~ /^cs_?(\d+)/) {
+  $mlss = $compara_dba->get_MethodLinkSpeciesSetAdaptor->fetch_by_dbID($1);
+  $track_name = "gerp_score.".($mlss->species_set->name || $1).".$species_name.e$version";
+  $description = $mlss->name." on $species_name in Ensembl $version";
+  $extra_desc = 'type=bedGraph';
 } elsif ($feature =~ /^nets_?(\d+)/) {
   $mlss = $compara_dba->get_MethodLinkSpeciesSetAdaptor->fetch_by_dbID($1);
   $track_name = $mlss->name.".e$version";
@@ -232,7 +239,7 @@ if ($feature =~ /^top/) {
 }
 
 if (!defined($from)) {
-  print "track name=$track_name description=\"$description\" useScore=0\n";
+  print "track name=$track_name description=\"$description\" $extra_desc\n";
 }
 
 my $all_slices;
@@ -489,6 +496,16 @@ foreach my $slice (sort {
       print join("\t", $name, ($start - 1), $end), "\n";
     }
     $sth->finish();
+    next;
+  } elsif ($feature =~ /^cs_?(\d+)/) {
+    # Iterate the slice by chunks of 1Mb
+    my $it = $slice->sub_Slice_Iterator(1_000_000);
+    while ($it->has_next()) {
+        my $sub_slice = $it->next();
+        warn $sub_slice->name();
+        my $scores = $compara_dba->get_ConservationScoreAdaptor->fetch_all_by_MethodLinkSpeciesSet_Slice($mlss, $sub_slice, $sub_slice->length, undef, 1);
+        print join("\t", $name, $_->start, $_->end, $_->diff_score), "\n" for @$scores;
+    }
     next;
   } elsif ($feature =~ /^mlss_?(\d+)/) {
 

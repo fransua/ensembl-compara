@@ -265,7 +265,7 @@ sub default_options {
         #'goc_capacity'              => 200,
         #'genesetQC_capacity'        => 100,
         #'other_paralogs_capacity'   => 100,
-        #'homology_dNdS_capacity'    => 200,
+        #'homology_dNdS_capacity'    => 1500,
         #'hc_capacity'               =>   4,
         #'decision_capacity'         =>   4,
         #'hc_post_tree_capacity'     => 100,
@@ -447,6 +447,7 @@ sub pipeline_create_commands {
     return [
         @{$self->SUPER::pipeline_create_commands},  # here we inherit creation of database, hive tables and compara tables
 
+        'rm -rf '.$self->o('cluster_dir'),
         'mkdir -p '.$self->o('cluster_dir'),
         'mkdir -p '.$self->o('dump_dir'),
         'mkdir -p '.$self->o('dump_dir').'/pafs',
@@ -457,12 +458,6 @@ sub pipeline_create_commands {
             # perform "lfs setstripe" only if lfs is runnable and the directory is on lustre:
         'which lfs && lfs getstripe '.$self->o('fasta_dir').' >/dev/null 2>/dev/null && lfs setstripe '.$self->o('fasta_dir').' -c -1 || echo "Striping is not available on this system" ',
 
-        $self->db_cmd( 'CREATE TABLE homology_id_mapping (
-            curr_release_homology_id  INT NOT NULL,
-            prev_release_homology_id  INT,
-            mlss_id                   INT NOT NULL,
-            INDEX (mlss_id)
-        )' ),
     ];
 }
 
@@ -993,17 +988,6 @@ sub core_pipeline_analyses {
             },
             -hive_capacity => $self->o('reuse_capacity'),
             -flow_into => {
-                1 => [ 'reset_gene_member_counters' ],
-            },
-        },
-
-        {   -logic_name => 'reset_gene_member_counters',
-            -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
-            -parameters => {
-                'sql' => [  'UPDATE gene_member SET families = 0, gene_trees = 0, gene_gain_loss_trees = 0, orthologues = 0, paralogues = 0, homoeologues = 0 WHERE genome_db_id = #genome_db_id#' ],
-            },
-            -hive_capacity => $self->o('reuse_capacity'),
-            -flow_into => {
                 1 => [ 'other_sequence_table_reuse' ],
             },
         },
@@ -1329,7 +1313,23 @@ sub core_pipeline_analyses {
                             },
              -hive_capacity => $self->o('HMMer_classifyPantherScore_capacity'),
              -rc_name => '4Gb_job',
+             -flow_into => {
+                           -1 => [ 'HMMer_classifyPantherScore_himem' ],  # MEMLIMIT
+                           },
             },
+
+            {
+             -logic_name => 'HMMer_classifyPantherScore_himem',
+             -module     => 'Bio::EnsEMBL::Compara::RunnableDB::ComparaHMM::HMMClassifyPantherScore',
+             -parameters => {
+                             'blast_bin_dir'       => $self->o('blast_bin_dir'),
+                             'pantherScore_path'   => $self->o('pantherScore_path'),
+                             'hmmer_path'          => $self->o('hmmer2_home'),
+                            },
+             -hive_capacity => $self->o('HMMer_classifyPantherScore_capacity'),
+             -rc_name => '8Gb_job',
+            },
+
 
             {
              -logic_name => 'HMM_clusterize',
@@ -1378,6 +1378,19 @@ sub core_pipeline_analyses {
                 'blast_bin_dir' => $self->o('blast_bin_dir'),
                 'cmd' => '#blast_bin_dir#/makeblastdb -dbtype prot -parse_seqids -logfile #fasta_name#.blastdb_log -in #fasta_name#',
             },
+            -flow_into  => {
+                -1 => [ 'make_blastdb_unannotated_himem' ],
+                1 => [ 'unannotated_all_vs_all_factory' ],
+            }
+        },
+
+        {   -logic_name => 'make_blastdb_unannotated_himem',
+            -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SystemCmd',
+            -parameters => {
+                'blast_bin_dir' => $self->o('blast_bin_dir'),
+                'cmd' => '#blast_bin_dir#/makeblastdb -dbtype prot -parse_seqids -logfile #fasta_name#.blastdb_log -in #fasta_name#',
+            },
+            -rc_name       => '1Gb_job',
             -flow_into  => [ 'unannotated_all_vs_all_factory' ],
         },
 
@@ -1400,6 +1413,21 @@ sub core_pipeline_analyses {
                 'evalue_limit'              => "#expr( #all_blast_params#->[#param_index#]->[3])expr#",
             },
             -rc_name       => '250Mb_job',
+            -flow_into => {
+               -1 => [ 'blastp_unannotated_himem' ],  # MEMLIMIT
+            },
+            -hive_capacity => $self->o('blastpu_capacity'),
+        },
+
+        {   -logic_name         => 'blastp_unannotated_himem',
+            -module             => 'Bio::EnsEMBL::Compara::RunnableDB::ComparaHMM::BlastpUnannotated',
+            -parameters         => {
+                'blast_db'                  => '#fasta_dir#/unannotated.fasta',
+                'blast_params'              => "#expr( #all_blast_params#->[#param_index#]->[2])expr#",
+                'blast_bin_dir'             => $self->o('blast_bin_dir'),
+                'evalue_limit'              => "#expr( #all_blast_params#->[#param_index#]->[3])expr#",
+            },
+            -rc_name       => '1Gb_job',
             -hive_capacity => $self->o('blastpu_capacity'),
         },
 
@@ -1478,8 +1506,25 @@ sub core_pipeline_analyses {
             },
             -batch_size    => 25,
             -rc_name       => '250Mb_job',
+            -flow_into => {
+               -1 => [ 'blastp_himem' ],  # MEMLIMIT
+            },
             -hive_capacity => $self->o('blastp_capacity'),
         },
+
+        {   -logic_name         => 'blastp_himem',
+            -module             => 'Bio::EnsEMBL::Compara::RunnableDB::ProteinTrees::BlastpWithReuse',
+            -parameters         => {
+                'blast_params'              => "#expr( #all_blast_params#->[#param_index#]->[2])expr#",
+                'blast_bin_dir'             => $self->o('blast_bin_dir'),
+                'evalue_limit'              => "#expr( #all_blast_params#->[#param_index#]->[3])expr#",
+                'allow_same_species_hits'   => 1,
+            },
+            -batch_size    => 25,
+            -rc_name       => '1Gb_job',
+            -hive_capacity => $self->o('blastp_capacity'),
+        },
+
 
         {   -logic_name         => 'hc_pafs',
             -module             => 'Bio::EnsEMBL::Compara::RunnableDB::GeneTrees::SqlHealthChecks',
@@ -1585,7 +1630,7 @@ sub core_pipeline_analyses {
             -parameters => {
                 'division'                  => $self->o('division'),
             },
-            -rc_name => '250Mb_job',
+            -rc_name => '2Gb_job',
         },
 
         {   -logic_name     => 'cluster_tagging',
@@ -1746,17 +1791,9 @@ sub core_pipeline_analyses {
                     ELSE 'build_HMM_factory',
                 ),
                 WHEN('#do_treefam_xref#' => 'treefam_xref_idmap'),
-                'write_member_counts',
                 WHEN('#initialise_cafe_pipeline#' => 'CAFE_table'),
             ],
             %hc_analysis_params,
-        },
-
-        {   -logic_name     => 'write_member_counts',
-            -module         => 'Bio::EnsEMBL::Hive::RunnableDB::DbCmd',
-            -parameters     => {
-                'input_file'    => $self->o('ensembl_cvs_root_dir').'/ensembl-compara/scripts/production/populate_member_production_counts_table.sql',
-            },
         },
 
         {   -logic_name     => 'write_stn_tags',
@@ -1802,7 +1839,7 @@ sub core_pipeline_analyses {
                 'mafft_home'            => $self->o('mafft_home'),
                 'escape_branch'         => -1,
             },
-            -hive_capacity        => $self->o('mcoffee_capacity'),
+            -analysis_capacity    => $self->o('mcoffee_capacity'),
             -rc_name    => '2Gb_job',
             -flow_into => {
                -1 => [ 'mcoffee_himem' ],  # MEMLIMIT
@@ -1997,32 +2034,63 @@ sub core_pipeline_analyses {
             },
             -flow_into  => {
                 1 => WHEN (
-                    '#tree_gene_count# < 4'   => 'treebest_small_families',
-                    ELSE 'prottest',
+                    '#tree_gene_count# < 4'                                     => 'treebest_small_families',
+                    '!#tree_best_fit_model_family# && #do_model_selection#'     => 'prottest_decision',
+                    '!#tree_best_fit_model_family# && !#do_model_selection#'    => 'get_num_of_patterns',
+                    '#tree_best_fit_model_family# && #do_model_selection#'      => 'prottest_decision',
+                    '#tree_best_fit_model_family# && !#do_model_selection#'     => 'get_num_of_patterns',
                 ),
             },
             %decision_analysis_params,
         },
 
 # ---------------------------------------------[model test]-------------------------------------------------------------
+        {   -logic_name => 'prottest_decision',
+            -module     => 'Bio::EnsEMBL::Compara::RunnableDB::GeneTrees::LoadTags',
+            -parameters => {
+                'tags'  => {
+                    #The default value matches the default dataflow we want: _8_cores analysis.
+                    'aln_num_of_patterns' => 200,
+                    'gene_count'          => 0,
+                },
+            },
+            %decision_analysis_params,
+
+            -flow_into  => {
+                1 => WHEN (
+                    '(#tree_aln_length# <= 150) && (#tree_gene_count# <= 500)'                                   => 'prottest',
+                    '(#tree_aln_length# <= 150) && (#tree_gene_count# > 500)'                                    => 'prottest',
+                    '(#tree_aln_length# > 150) && (#tree_aln_length# <= 1200) && (#tree_gene_count# <= 500)'     => 'prottest_8_cores',
+                    '(#tree_aln_length# > 150) && (#tree_aln_length# <= 1200) && (#tree_gene_count# > 500)'      => 'prottest_8_cores',
+                    '(#tree_aln_length# > 1200) && (#tree_aln_length# <= 2400) && (#tree_gene_count# <= 500)'    => 'prottest_8_cores',
+                    '(#tree_aln_length# > 1200) && (#tree_aln_length# <= 2400) && (#tree_gene_count# > 500)'     => 'prottest_16_cores',
+                    '(#tree_aln_length# > 2400) && (#tree_aln_length# <= 8000) && (#tree_gene_count# <= 500)'    => 'prottest_16_cores',
+                    '(#tree_aln_length# > 2400) && (#tree_aln_length# <= 8000) && (#tree_gene_count# > 500)'     => 'prottest_16_cores',
+                    '(#tree_aln_length# > 8000) && (#tree_aln_length# <= 16000) && (#tree_gene_count# <= 500)'   => 'prottest_32_cores',
+                    '(#tree_aln_length# > 8000) && (#tree_aln_length# <= 16000) && (#tree_gene_count# > 500)'    => 'prottest_32_cores',
+                    '(#tree_aln_length# > 16000) && (#tree_aln_length# <= 32000) && (#tree_gene_count# <= 500)'  => 'prottest_32_cores',
+                    '(#tree_aln_length# > 16000) && (#tree_aln_length# <= 32000) && (#tree_gene_count# > 500)'   => 'get_num_of_patterns',
+                    '(#tree_aln_length# > 32000)'                                                                => 'get_num_of_patterns',
+                ),
+            },
+        },
 
         {   -logic_name => 'prottest',
             -module     => 'Bio::EnsEMBL::Compara::RunnableDB::ProteinTrees::ProtTest',
             -parameters => {
                 'prottest_jar'          => $self->o('prottest_jar'),
                 'prottest_memory'       => 3500,
-                'escape_branch'         => -1,
-                'n_cores'               => 8,
+                'n_cores'               => 1,
             },
             -hive_capacity				=> $self->o('prottest_capacity'),
-            -rc_name    				=> '16Gb_16c_job',
+            -rc_name    				=> '2Gb_job',
             -max_retry_count			=> 1,
             -flow_into  => {
                 -1 => [ 'prottest_himem' ],
                 1 => [ 'get_num_of_patterns' ],
-				2 => [ 'treebest_small_families' ],# This route is used in cases where a particular tree with e.g. 4 genes will pass the threshold for
-												   #   small trees in treebest_small_families, but these genes may be split_genes which would mean that 
-												   #   the tree actually have < 4 genes, thus crashing PhyML/ProtTest.
+				2 => [ 'treebest_small_families' ], # This route is used in cases where a particular tree with e.g. 4 genes will pass the threshold for
+                                                    #   small trees in treebest_small_families, but these genes may be split_genes which would mean that 
+                                                    #   the tree actually have < 4 genes, thus crashing PhyML/ProtTest.
             }
         },
 
@@ -2031,16 +2099,73 @@ sub core_pipeline_analyses {
             -parameters => {
                 'prottest_jar'          => $self->o('prottest_jar'),
                 'prottest_memory'       => 7000,
-                'escape_branch'         => -1,      # RAxML will use a default model, anyway
+                #'escape_branch'         => -1,      # RAxML will use a default model, anyway
+                'n_cores'               => 1,
+            },
+            -hive_capacity				=> $self->o('prottest_capacity'),
+            -rc_name					=> '4Gb_job',
+            -max_retry_count 			=> 1,
+            -flow_into  => {
+                #-1 => [ 'get_num_of_patterns' ],
+                1 => [ 'get_num_of_patterns' ],
+			}
+        },
+
+        {   -logic_name => 'prottest_8_cores',
+            -module     => 'Bio::EnsEMBL::Compara::RunnableDB::ProteinTrees::ProtTest',
+            -parameters => {
+                'prottest_jar'          => $self->o('prottest_jar'),
+                'prottest_memory'       => 3500,
+                #'escape_branch'         => -1,
                 'n_cores'               => 8,
             },
             -hive_capacity				=> $self->o('prottest_capacity'),
-            -rc_name					=> '32Gb_16c_job',
-            -max_retry_count 			=> 1,
+            -rc_name    				=> '8Gb_8c_job',
+            -max_retry_count			=> 1,
             -flow_into  => {
-                -1 => [ 'get_num_of_patterns' ],
                 1 => [ 'get_num_of_patterns' ],
-			}
+				2 => [ 'treebest_small_families' ], # This route is used in cases where a particular tree with e.g. 4 genes will pass the threshold for
+                                                    #   small trees in treebest_small_families, but these genes may be split_genes which would mean that 
+                                                    #   the tree actually have < 4 genes, thus crashing PhyML/ProtTest.
+            }
+        },
+
+        {   -logic_name => 'prottest_16_cores',
+            -module     => 'Bio::EnsEMBL::Compara::RunnableDB::ProteinTrees::ProtTest',
+            -parameters => {
+                'prottest_jar'          => $self->o('prottest_jar'),
+                'prottest_memory'       => 3500,
+                #'escape_branch'         => -1,
+                'n_cores'               => 16,
+            },
+            -hive_capacity				=> $self->o('prottest_capacity'),
+            -rc_name    				=> '16Gb_16c_job',
+            -max_retry_count			=> 1,
+            -flow_into  => {
+                1 => [ 'get_num_of_patterns' ],
+				2 => [ 'treebest_small_families' ], # This route is used in cases where a particular tree with e.g. 4 genes will pass the threshold for
+                                                    #   small trees in treebest_small_families, but these genes may be split_genes which would mean that 
+                                                    #   the tree actually have < 4 genes, thus crashing PhyML/ProtTest.
+            }
+        },
+
+        {   -logic_name => 'prottest_32_cores',
+            -module     => 'Bio::EnsEMBL::Compara::RunnableDB::ProteinTrees::ProtTest',
+            -parameters => {
+                'prottest_jar'          => $self->o('prottest_jar'),
+                'prottest_memory'       => 3500,
+                #'escape_branch'         => -1,
+                'n_cores'               => 32,
+            },
+            -hive_capacity				=> $self->o('prottest_capacity'),
+            -rc_name    				=> '16Gb_32c_job',
+            -max_retry_count			=> 1,
+            -flow_into  => {
+                1 => [ 'get_num_of_patterns' ],
+				2 => [ 'treebest_small_families' ], # This route is used in cases where a particular tree with e.g. 4 genes will pass the threshold for
+                                                    #   small trees in treebest_small_families, but these genes may be split_genes which would mean that 
+                                                    #   the tree actually have < 4 genes, thus crashing PhyML/ProtTest.
+            }
         },
 
 # ---------------------------------------------[tree building with treebest]-------------------------------------------------------------
@@ -3102,7 +3227,9 @@ sub core_pipeline_analyses {
         {   -logic_name => 'homology_stat_entry_point',
             -module     => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
             -flow_into  => {
-                '1->A' => ['id_map_group_genomes'],
+                '1->A'  => WHEN(
+                    '((#reuse_goc#) and (#prev_rel_db#))' => 'id_map_mlss_factory',
+                ),
                 'A->1' => ['goc_group_genomes_under_taxa'],
                 '1'    => ['group_genomes_under_taxa', 'get_species_set', 'homology_stats_factory'],
             },
@@ -3119,21 +3246,17 @@ sub core_pipeline_analyses {
             },
         },
 
-        {   -logic_name => 'id_map_group_genomes',
-            -module     => 'Bio::EnsEMBL::Compara::RunnableDB::ProteinTrees::GroupGenomesUnderTaxa',
-            -parameters => {
-                'taxlevels'             => ['all'],
-                'filter_high_coverage'  => 0,
-            },
-            -flow_into => {
-                2 => [ 'id_map_mlss_factory' ],
-            },
-        },
-
         {   -logic_name => 'id_map_mlss_factory',
-            -module     => 'Bio::EnsEMBL::Compara::RunnableDB::ProteinTrees::MLSSIDFactory',
+            -module     => 'Bio::EnsEMBL::Compara::RunnableDB::MLSSIDFactory',
+            -parameters => {
+                'methods'   => {
+                    'ENSEMBL_ORTHOLOGUES'   => 2,
+                },
+            },
             -flow_into => {
-                2 => [ 'id_map_homology_factory' ],
+                2 => {
+                    'id_map_homology_factory' => { 'homo_mlss_id' => '#mlss_id#' },
+                },
             },
         },
 

@@ -50,12 +50,18 @@ package Bio::EnsEMBL::Compara::SpeciesTreeNode;
 use strict;
 use warnings;
 
+use Scalar::Util qw(weaken);
+
 use base ('Bio::EnsEMBL::Compara::NestedSet');
 
 
 sub _complete_cast_node {
     my ($self, $orig) = @_;
-    $self->genome_db_id($orig->{_gdb_id_for_cast}) if exists $orig->{_gdb_id_for_cast};
+    if (exists $orig->{'_gdb'}) {
+        $self->{'_genome_db'} = $orig->{'_gdb'};
+        $self->genome_db_id($orig->{'_gdb'}->dbID);
+        weaken($self->{'_genome_db'});
+    }
     if ($orig->isa('Bio::EnsEMBL::Compara::NCBITaxon')) {
         $self->taxon($orig);
     } elsif ($orig->{'_taxon'}) {
@@ -141,11 +147,12 @@ sub genome_db_id {
 
 sub genome_db {
     my ($self) = @_;
-    return undef unless ($self->is_leaf);
+    return $self->{'_genome_db'} if $self->{'_genome_db'};
     my $genome_db_id = $self->genome_db_id;
     return undef unless (defined $genome_db_id);
-    my $genomeDBAdaptor = $self->adaptor->db->get_GenomeDBAdaptor;
-    return $genomeDBAdaptor->fetch_by_dbID($self->genome_db_id);
+    $self->{'_genome_db'} = $self->adaptor->db->get_GenomeDBAdaptor->fetch_by_dbID($self->genome_db_id);
+    weaken($self->{'_genome_db'});
+    return $self->{'_genome_db'};
 }
 
 sub node_name {
@@ -160,5 +167,26 @@ sub name {
     my $self = shift;
     return $self->node_name(@_);
 }
+
+sub string_node {
+    my $self = shift;
+
+    my $s = $self->right_index ? sprintf('(%s,%s)', $self->left_index, $self->right_index).' ' : '';
+    $s .= $self->toString()."\n";
+
+    return $s;
+}
+
+sub toString {
+    my $self = shift;
+
+    my @elts;
+    push @elts, ($self->name ||  '(unnamed)');
+    push @elts, sprintf('taxon_id=%s', $self->taxon_id) if $self->taxon_id;
+    push @elts, sprintf('genome_db_id=%s', $self->genome_db_id) if $self->genome_db_id;
+
+    return join(' ', @elts);
+}
+
 
 1;

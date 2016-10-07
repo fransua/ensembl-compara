@@ -29,7 +29,9 @@ use warnings;
 use Bio::EnsEMBL::Utils::ConfigRegistry;
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Compara::DBSQL::DBAdaptor;
-
+use Bio::EnsEMBL::Production::DBSQL::DBAdaptor;
+use Bio::EnsEMBL::Taxonomy::DBSQL::TaxonomyDBAdaptor;
+use Bio::EnsEMBL::Hive::DBSQL::DBAdaptor;
 
 # ------------------------- CORE DATABASES: --------------------------------------
 
@@ -41,50 +43,246 @@ Bio::EnsEMBL::Registry->load_registry_from_url(
 Bio::EnsEMBL::Registry->load_registry_from_url(
   'mysql://ensro@ens-staging2/86');
 
-# Extra core databases that live on genebuilders' servers:
-Bio::EnsEMBL::Registry->remove_DBAdaptor('gallus_gallus', 'core'); # deregister old version
-Bio::EnsEMBL::DBSQL::DBAdaptor->new(
-    -host => 'genebuild12',
-    -user => 'ensro',
-    -port => 3306,
-    -species => 'gallus_gallus',
-    -group => 'core',
-    -dbname => 'th3_chicken_core_mt',
-);
+# # Extra core databases that live on genebuilders' servers:
+# Bio::EnsEMBL::Registry->remove_DBAdaptor('gallus_gallus', 'core'); # deregister old version
+# Bio::EnsEMBL::DBSQL::DBAdaptor->new(
+#     -host => 'genebuild12',
+#     -user => 'ensro',
+#     -port => 3306,
+#     -species => 'gallus_gallus',
+#     -group => 'core',
+#     -dbname => 'th3_chicken_core_mt',
+# );
+
+# Bio::EnsEMBL::Registry->remove_DBAdaptor('mus_musculus', 'core'); # deregister old version
+# Bio::EnsEMBL::DBSQL::DBAdaptor->new(
+#     -host => 'ens-staging2',
+#     -user => 'ensro',
+#     -port => 3306,
+#     -species => 'mus_musculus',
+#     -group => 'core',
+#     -dbname => 'mus_musculus_core_86_38',
+# );
 
 
 # ------------------------- COMPARA DATABASES: -----------------------------------
 
 # # Individual pipeline database for ProteinTrees:
-#  Bio::EnsEMBL::Compara::DBSQL::DBAdaptor->new(
-#      -host => 'compara2',
-#      -user => 'ensadmin',
-#      -pass => $ENV{'ENSADMIN_PSW'},
-#      -port => 3306,
-#      -species => 'compara_ptrees',
-#      -dbname => 'mp14_protein_trees_85',
-#  );
+Bio::EnsEMBL::Compara::DBSQL::DBAdaptor->new(
+     -host => 'compara5',
+     -user => 'ensadmin',
+     -pass => $ENV{'ENSADMIN_PSW'},
+     -port => 3306,
+     -species => 'compara_ptrees',
+     -dbname => 'cc21_protein_trees_no_reuse_86',
+);
 
-#  # Individual pipeline database for ncRNAtrees:
-#  Bio::EnsEMBL::Compara::DBSQL::DBAdaptor->new(
-#      -host => 'compara4',
-#      -user => 'ensadmin',
-#      -pass => $ENV{'ENSADMIN_PSW'},
-#      -port => 3306,
-#      -species => 'compara_nctrees',
-#      -dbname => 'wa2_ensembl_families_85',
-#  );
+Bio::EnsEMBL::Compara::DBSQL::DBAdaptor->new(
+     -host => 'compara1',
+     -user => 'ensadmin',
+     -pass => $ENV{'ENSADMIN_PSW'},
+     -port => 3306,
+     -species => 'compara_mice_ptrees',
+     -dbname => 'mm14_protein_trees_mouse_86b',
+);
 
-# # # Individual pipeline database for Families:
-#  Bio::EnsEMBL::Compara::DBSQL::DBAdaptor->new(
-#      -host => 'compara3',
-#      -user => 'ensadmin',
-#      -pass => $ENV{'ENSADMIN_PSW'},
-#      -port => 3306,
-#      -species => 'compara_families',
-#      -dbname => 'cc21_compara_nctrees_85',
-#  );
+# Individual pipeline database for ncRNAtrees:
+ Bio::EnsEMBL::Compara::DBSQL::DBAdaptor->new(
+     -host => 'compara4',
+     -user => 'ensadmin',
+     -pass => $ENV{'ENSADMIN_PSW'},
+     -port => 3306,
+     -species => 'compara_nctrees',
+     -dbname => 'mp14_compara_nctrees_86',
+ );
 
+ Bio::EnsEMBL::Compara::DBSQL::DBAdaptor->new(
+     -host => 'compara1',
+     -user => 'ensadmin',
+     -pass => $ENV{'ENSADMIN_PSW'},
+     -port => 3306,
+     -species => 'compara_mouse_nctrees',
+     -dbname => 'mm14_nctrees_mouse_86',
+);
+
+# # Individual pipeline database for Families:
+ Bio::EnsEMBL::Compara::DBSQL::DBAdaptor->new(
+     -host => 'compara2',
+     -user => 'ensadmin',
+     -pass => $ENV{'ENSADMIN_PSW'},
+     -port => 3306,
+     -species => 'compara_families',
+     -dbname => 'mp14_ensembl_families_86',
+);
+
+# ------------------------- LASTZ DATABASES: -----------------------------------
+
+Bio::EnsEMBL::Compara::DBSQL::DBAdaptor->new(
+     -host => 'compara3',
+     -user => 'ensadmin',
+     -pass => $ENV{'ENSADMIN_PSW'},
+     -port => 3306,
+     -species => 'mmul_mmur_lastz',
+     -dbname => 'cc21_hsap_mmul_mmur_lastz_86',
+);
+
+Bio::EnsEMBL::Compara::DBSQL::DBAdaptor->new(
+     -host => 'compara2',
+     -user => 'ensadmin',
+     -pass => $ENV{'ENSADMIN_PSW'},
+     -port => 3306,
+     -species => 'ggal_lastz_1',
+     -dbname => 'mp14_LASTZ_chicken_col1_86',
+);
+
+Bio::EnsEMBL::Compara::DBSQL::DBAdaptor->new(
+     -host => 'compara4',
+     -user => 'ensadmin',
+     -pass => $ENV{'ENSADMIN_PSW'},
+     -port => 3306,
+     -species => 'ggal_lastz_2',
+     -dbname => 'wa2_chicken_lastz_86',
+);
+
+Bio::EnsEMBL::Compara::DBSQL::DBAdaptor->new(
+     -host => 'compara1',
+     -user => 'ensadmin',
+     -pass => $ENV{'ENSADMIN_PSW'},
+     -port => 3306,
+     -species => 'ggal_lastz_3',
+     -dbname => 'mm14_LASTZ_chicken_col3_86',
+);
+
+Bio::EnsEMBL::Compara::DBSQL::DBAdaptor->new(
+     -host => 'compara3',
+     -user => 'ensadmin',
+     -pass => $ENV{'ENSADMIN_PSW'},
+     -port => 3306,
+     -species => 'hsap_ggal_lastz',
+     -dbname => 'cc21_human_chicken_lastz_86',
+);
+
+Bio::EnsEMBL::Compara::DBSQL::DBAdaptor->new(
+     -host => 'compara3',
+     -user => 'ensadmin',
+     -pass => $ENV{'ENSADMIN_PSW'},
+     -port => 3306,
+     -species => 'mmus_ggal_lastz',
+     -dbname => 'cc21_mouse_chicken_lastz_86',
+);
+
+Bio::EnsEMBL::Compara::DBSQL::DBAdaptor->new(
+     -host => 'compara4',
+     -user => 'ensadmin',
+     -pass => $ENV{'ENSADMIN_PSW'},
+     -port => 3306,
+     -species => 'hsap_mspr_lastz',
+     -dbname => 'mp14_LASTZ_human_spretus_86',
+);
+
+# ------------------------- EPO DATABASES: -----------------------------------
+
+Bio::EnsEMBL::Compara::DBSQL::DBAdaptor->new(
+     -host => 'compara3',
+     -user => 'ensadmin',
+     -pass => $ENV{'ENSADMIN_PSW'},
+     -port => 3306,
+     -species => 'mammal_epo',
+     -dbname => 'cc21_mammals_epo_pt3_86',
+);
+
+Bio::EnsEMBL::DBSQL::DBAdaptor->new(
+     -host => 'compara4',
+     -user => 'ensadmin',
+     -pass => $ENV{'ENSADMIN_PSW'},
+     -port => 3306,
+     -species => 'mammal_ancestral_epo',
+     -dbname => 'cc21_mammals_ancestral_core_86',
+);
+
+Bio::EnsEMBL::Compara::DBSQL::DBAdaptor->new(
+     -host => 'compara5',
+     -user => 'ensadmin',
+     -pass => $ENV{'ENSADMIN_PSW'},
+     -port => 3306,
+     -species => 'primates_epo',
+     -dbname => 'wa2_primates_epo',
+);
+
+Bio::EnsEMBL::DBSQL::DBAdaptor->new(
+     -host => 'compara4',
+     -user => 'ensadmin',
+     -pass => $ENV{'ENSADMIN_PSW'},
+     -port => 3306,
+     -species => 'primates_ancestral_epo',
+     -dbname => 'wa2_primates_ancestral_core_85',
+);
+
+Bio::EnsEMBL::Compara::DBSQL::DBAdaptor->new(
+     -host => 'compara1',
+     -user => 'ensadmin',
+     -pass => $ENV{'ENSADMIN_PSW'},
+     -port => 3306,
+     -species => 'birds_epo',
+     -dbname => 'mm14_4sauropsids_new4sauranchor_hacked_86_epo',
+);
+
+Bio::EnsEMBL::DBSQL::DBAdaptor->new(
+     -host => 'compara1',
+     -user => 'ensadmin',
+     -pass => $ENV{'ENSADMIN_PSW'},
+     -port => 3306,
+     -species => 'birds_ancestral_epo',
+     -dbname => 'mm14_4sauropsids_new4sauranchor_hacked_86_ancestral_core_86',
+);
+
+# -----------------------OTHER ALIGNMENTS-------------------------------
+
+Bio::EnsEMBL::Compara::DBSQL::DBAdaptor->new(
+     -host => 'compara1',
+     -user => 'ensadmin',
+     -pass => $ENV{'ENSADMIN_PSW'},
+     -port => 3306,
+     -species => 'pecan',
+     -dbname => 'mm14_pecan_24way_86b',
+);
+
+Bio::EnsEMBL::Compara::DBSQL::DBAdaptor->new(
+     -host => 'compara3',
+     -user => 'ensadmin',
+     -pass => $ENV{'ENSADMIN_PSW'},
+     -port => 3306,
+     -species => 'mammal_epo2x',
+     -dbname => 'cc21_EPO_low_86',
+);
+
+Bio::EnsEMBL::Compara::DBSQL::DBAdaptor->new(
+     -host => 'compara1',
+     -user => 'ensadmin',
+     -pass => $ENV{'ENSADMIN_PSW'},
+     -port => 3306,
+     -species => 'bird_epo2x',
+     -dbname => 'mm14_EPO_low_86',
+);
+
+Bio::EnsEMBL::Compara::DBSQL::DBAdaptor->new(
+     -host => 'compara3',
+     -user => 'ensadmin',
+     -pass => $ENV{'ENSADMIN_PSW'},
+     -port => 3306,
+     -species => 'synteny',
+     -dbname => 'cc21_synteny_86',
+);
+
+# ----------------------------------------------------------------------
+
+# Merged homologies
+Bio::EnsEMBL::Hive::DBSQL::DBAdaptor->new(
+    # eHive DBAdaptor only accepts a URL
+     -url  => 'mysql://ensadmin:'.$ENV{'ENSADMIN_PSW'}.'@compara1:3306/mm14_pipeline_hom_final_merge_86',
+     -species => 'homologies_merged',
+     -no_sql_schema_version_check => 1,
+);
 
 # Compara Master database:
 Bio::EnsEMBL::Compara::DBSQL::DBAdaptor->new(
@@ -138,17 +336,18 @@ Bio::EnsEMBL::DBSQL::DBAdaptor->new(
 );
 
 # ensembl production (maintained by production team):
-Bio::EnsEMBL::Compara::DBSQL::DBAdaptor->new(
+Bio::EnsEMBL::Production::DBSQL::DBAdaptor->new(
     -host => 'ens-staging',
     -user => 'ensadmin',
     -pass => $ENV{'ENSADMIN_PSW'},
     -port => 3306,
     -species => 'ensembl_production',
     -dbname => 'ensembl_production',
+    -group => 'production',
 );
 
 # NCBI taxonomy database (also maintained by production team):
-Bio::EnsEMBL::Compara::DBSQL::DBAdaptor->new(
+Bio::EnsEMBL::Taxonomy::DBSQL::TaxonomyDBAdaptor->new(
     -host => 'ens-livemirror',
     -user => 'ensadmin',
     -pass => $ENV{'ENSADMIN_PSW'},

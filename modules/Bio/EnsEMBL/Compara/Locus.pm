@@ -353,16 +353,19 @@ sub dnafrag_strand {
 sub get_Slice {
   my ($self) = @_;
 
-  my $slice = $self->dnafrag->slice;
-  return undef if (!defined($slice));
+  if ((defined $self->{'dnafrag'}) || (defined $self->{'dnafrag_id'})) {
+    my $slice = $self->dnafrag->slice;
+    return undef if (!defined($slice));
 
-  $slice = $slice->sub_Slice(
-              $self->dnafrag_start,
-              $self->dnafrag_end,
-              $self->dnafrag_strand
-          );
+    $slice = $slice->sub_Slice(
+                $self->dnafrag_start,
+                $self->dnafrag_end,
+                $self->dnafrag_strand
+            );
 
-  return $slice;
+    return $slice;
+  }
+  return undef;
 }
 
 
