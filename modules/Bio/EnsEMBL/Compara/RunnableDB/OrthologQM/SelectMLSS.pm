@@ -1,3 +1,22 @@
+=head1 LICENSE
+
+Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+Copyright [2016] EMBL-European Bioinformatics Institute
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+=cut
+
 =pod
 
 =head1 NAME
@@ -14,7 +33,6 @@
 	Inputs:
 	species1_id		genome_db_id from first species
 	species2_id		genome_db_id from second species
-	species_set_id 	id of species set which both species are members of (optional)
 	aln_mlss_ids	over-ride runnable entirely by manually defining IDs
 
 	Outputs:
@@ -86,19 +104,6 @@ sub fetch_input {
 		}
 	}
 
-	# first, check if EPO exists for complete species set
-	# my $species_set_id = $self->param( 'species_set_id' );
-	# my $common_mlss_list;
-	# if ( $species_set_id ){
-	# 	my $epo_method_link_id = $self->param('epo_method_link_id');
-	# 	$common_mlss_list = [ $mlss_adap->fetch_by_method_link_id_species_set_id( $epo_method_link_id, $species_set_id ) ];
-	# 	# if ( defined $set_mlss ) {
-	# 	# 	$self->param( 'aln_mlss_ids', [$set_mlss->dbID] );
-	# 	# 	return 1;
-	# 	# }
-	# }
-	# else {
-
 	# check if an EPO exists between both species
 	my $mlss_list_s1 = $mlss_adap->fetch_all_by_method_link_type_GenomeDB( "EPO", $species1_gdb );
 	my $mlss_list_s2 = $mlss_adap->fetch_all_by_method_link_type_GenomeDB( "EPO", $species2_gdb );
@@ -141,10 +146,8 @@ sub write_output {
 		'aln_mlss_ids' => $self->param( 'aln_mlss_ids' ),
 	};
 
-	print "FLOWING #1: ";
-	print Dumper { mlss => $self->param('aln_mlss_ids') };
-	print "FLOWING #2: ";
-	print Dumper $dataflow;
+	print "FLOWING #1: ", Dumper { mlss => $self->param('aln_mlss_ids') };
+	print "FLOWING #2: ", Dumper $dataflow;
 
 	$self->dataflow_output_id( { mlss => $self->param('aln_mlss_ids') }, 1 ); # to write_threshold
 	$self->dataflow_output_id( $dataflow, 2 ); # to prepare_orthologs

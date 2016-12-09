@@ -223,6 +223,9 @@ sub default_options {
      'dbresource'    => 'my'.$self->o('host'), # will work for compara1..compara4, but will have to be set manually otherwise
      'aligner_capacity' => 4000,
 
+     # stats report email
+     'epo_stats_report_exe' => $self->o('ensembl_cvs_root_dir')."/ensembl-compara/scripts/production/epo_stats.pl",
+     'epo_stats_report_email' => $ENV{'USER'} . '@sanger.ac.uk',
     };
 }
 
@@ -292,8 +295,9 @@ sub pipeline_analyses {
             { -logic_name => 'set_mlss_tag',
               -module     => 'Bio::EnsEMBL::Hive::RunnableDB::SqlCmd',
               -parameters => {
-                              'sql' => [ 'INSERT INTO method_link_species_set_tag (method_link_species_set_id, tag, value) VALUES (' . $self->o('cs_mlss_id') . ', "msa_mlss_id", ' . $self->o('mlss_id') . ')' ],
-                              'sql' => [ 'INSERT INTO method_link_species_set_tag (method_link_species_set_id, tag, value) VALUES (' . $self->o('ce_mlss_id') . ', "msa_mlss_id", ' . $self->o('mlss_id') . ')' ],
+                  'sql' => [ 'INSERT INTO method_link_species_set_tag (method_link_species_set_id, tag, value) VALUES (' . $self->o('cs_mlss_id') . ', "msa_mlss_id", ' . $self->o('mlss_id') . ')',
+                             'INSERT INTO method_link_species_set_tag (method_link_species_set_id, tag, value) VALUES (' . $self->o('ce_mlss_id') . ', "msa_mlss_id", ' . $self->o('mlss_id') . ')',
+                           ],
                              },
               -flow_into => {
                              1 => [ 'set_internal_ids' ],
@@ -751,6 +755,7 @@ sub pipeline_analyses {
             -flow_into  => {
                 '2->A' => [ 'multiplealigner_stats' ],
                 'A->1' => [ 'block_size_distribution' ],
+                '3'    => [ 'email_stats_report' ],
             },
         },
 
@@ -774,6 +779,14 @@ sub pipeline_analyses {
             -parameters => {
                 'mlss_id'   => $self->o('mlss_id'),
             },
+        },
+
+        {   -logic_name => 'email_stats_report',
+            -module     => 'Bio::EnsEMBL::Compara::RunnableDB::GenomicAlignBlock::EmailStatsReport',
+            -parameters => {
+                'stats_exe' => $self->o('epo_stats_report_exe'),
+                'email'     => $self->o('epo_stats_report_email'),
+            }
         },
 
     ];

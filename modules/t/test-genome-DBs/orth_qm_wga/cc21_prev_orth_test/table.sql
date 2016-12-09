@@ -20,38 +20,6 @@ CREATE TABLE `CAFE_species_gene` (
   KEY `node_id` (`node_id`)
 ) ENGINE=MyISAM DEFAULT CHARSET=latin1;
 
-CREATE TABLE `CAFE_tree` (
-  `root_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `method_link_species_set_id` int(10) unsigned NOT NULL,
-  `species_tree` mediumtext NOT NULL,
-  `lambdas` varchar(100) DEFAULT NULL,
-  `p_value_lim` double(5,4) DEFAULT NULL,
-  PRIMARY KEY (`root_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1;
-
-CREATE TABLE `CAFE_tree_attr` (
-  `node_id` int(10) unsigned NOT NULL,
-  `fam_id` int(10) unsigned NOT NULL,
-  `taxon_id` int(10) unsigned DEFAULT NULL,
-  `n_members` int(4) unsigned NOT NULL,
-  `p_value` double(5,4) DEFAULT NULL,
-  `avg_pvalue` double(5,4) DEFAULT NULL,
-  UNIQUE KEY `node_id` (`node_id`,`fam_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1;
-
-CREATE TABLE `CAFE_tree_node` (
-  `node_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `parent_id` int(10) unsigned NOT NULL,
-  `root_id` int(10) unsigned NOT NULL,
-  `left_index` int(10) NOT NULL,
-  `right_index` int(10) NOT NULL,
-  `distance_to_parent` double DEFAULT '1',
-  PRIMARY KEY (`node_id`),
-  KEY `parent_id` (`parent_id`),
-  KEY `root_id` (`root_id`,`left_index`),
-  KEY `root_id_2` (`root_id`,`right_index`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1;
-
 CREATE TABLE `conservation_score` (
   `genomic_align_block_id` bigint(20) unsigned NOT NULL,
   `window_size` smallint(5) unsigned NOT NULL,
@@ -132,7 +100,7 @@ CREATE TABLE `family_member` (
   `cigar_line` mediumtext,
   PRIMARY KEY (`family_id`,`seq_member_id`),
   KEY `family_id` (`family_id`),
-  KEY `member_id` (`seq_member_id`)
+  KEY `seq_member_id` (`seq_member_id`)
 ) ENGINE=MyISAM DEFAULT CHARSET=latin1;
 
 CREATE TABLE `gene_align` (
@@ -148,7 +116,7 @@ CREATE TABLE `gene_align_member` (
   `seq_member_id` int(10) unsigned NOT NULL,
   `cigar_line` mediumtext,
   PRIMARY KEY (`gene_align_id`,`seq_member_id`),
-  KEY `member_id` (`seq_member_id`)
+  KEY `seq_member_id` (`seq_member_id`)
 ) ENGINE=MyISAM DEFAULT CHARSET=latin1;
 
 CREATE TABLE `gene_member` (
@@ -168,7 +136,7 @@ CREATE TABLE `gene_member` (
   PRIMARY KEY (`gene_member_id`),
   UNIQUE KEY `stable_id` (`stable_id`),
   KEY `taxon_id` (`taxon_id`),
-  KEY `dnafrag_id` (`dnafrag_id`),
+  KEY `genome_db_id` (`genome_db_id`),
   KEY `source_name` (`source_name`),
   KEY `canonical_member_id` (`canonical_member_id`),
   KEY `dnafrag_id_start` (`dnafrag_id`,`dnafrag_start`),
@@ -187,6 +155,18 @@ CREATE TABLE `gene_member_hom_stats` (
   PRIMARY KEY (`gene_member_id`,`collection`)
 ) ENGINE=MyISAM DEFAULT CHARSET=latin1;
 
+CREATE TABLE `gene_member_qc` (
+  `gene_member_stable_id` varchar(128) NOT NULL,
+  `genome_db_id` int(10) unsigned NOT NULL,
+  `seq_member_id` int(10) DEFAULT NULL,
+  `n_species` int(11) DEFAULT NULL,
+  `n_orth` int(11) DEFAULT NULL,
+  `avg_cov` float DEFAULT NULL,
+  `status` varchar(50) NOT NULL,
+  KEY `genome_db_id` (`genome_db_id`),
+  KEY `gene_member_stable_id` (`gene_member_stable_id`)
+) ENGINE=MyISAM DEFAULT CHARSET=latin1;
+
 CREATE TABLE `gene_tree_node` (
   `node_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `parent_id` int(10) unsigned DEFAULT NULL,
@@ -197,18 +177,19 @@ CREATE TABLE `gene_tree_node` (
   `seq_member_id` int(10) unsigned DEFAULT NULL,
   PRIMARY KEY (`node_id`),
   KEY `parent_id` (`parent_id`),
-  KEY `member_id` (`seq_member_id`),
-  KEY `root_id_left_index` (`root_id`,`left_index`),
-  KEY `root_id` (`root_id`)
+  KEY `seq_member_id` (`seq_member_id`),
+  KEY `root_id` (`root_id`),
+  KEY `root_id_left_index` (`root_id`,`left_index`)
 ) ENGINE=MyISAM DEFAULT CHARSET=latin1;
 
 CREATE TABLE `gene_tree_node_attr` (
   `node_id` int(10) unsigned NOT NULL,
   `node_type` enum('duplication','dubious','speciation','gene_split') DEFAULT NULL,
+  `species_tree_node_id` int(10) unsigned DEFAULT NULL,
   `bootstrap` tinyint(3) unsigned DEFAULT NULL,
   `duplication_confidence_score` double(5,4) DEFAULT NULL,
-  `species_tree_node_id` int(10) unsigned DEFAULT NULL,
-  PRIMARY KEY (`node_id`)
+  PRIMARY KEY (`node_id`),
+  KEY `species_tree_node_id` (`species_tree_node_id`)
 ) ENGINE=MyISAM DEFAULT CHARSET=latin1;
 
 CREATE TABLE `gene_tree_node_tag` (
@@ -230,7 +211,7 @@ CREATE TABLE `gene_tree_root` (
   `root_id` int(10) unsigned NOT NULL,
   `member_type` enum('protein','ncrna') NOT NULL,
   `tree_type` enum('clusterset','supertree','tree') NOT NULL,
-  `clusterset_id` varchar(20) NOT NULL,
+  `clusterset_id` varchar(20) NOT NULL DEFAULT 'default',
   `method_link_species_set_id` int(10) unsigned NOT NULL,
   `species_tree_root_id` int(10) unsigned DEFAULT NULL,
   `gene_align_id` int(10) unsigned DEFAULT NULL,
@@ -240,9 +221,9 @@ CREATE TABLE `gene_tree_root` (
   PRIMARY KEY (`root_id`),
   UNIQUE KEY `stable_id` (`stable_id`),
   KEY `method_link_species_set_id` (`method_link_species_set_id`),
-  KEY `tree_type` (`tree_type`),
+  KEY `gene_align_id` (`gene_align_id`),
   KEY `ref_root_id` (`ref_root_id`),
-  KEY `gene_align_id` (`gene_align_id`)
+  KEY `tree_type` (`tree_type`)
 ) ENGINE=MyISAM DEFAULT CHARSET=latin1;
 
 CREATE TABLE `gene_tree_root_attr` (
@@ -279,10 +260,8 @@ CREATE TABLE `gene_tree_root_tag` (
   `tag` varchar(50) NOT NULL,
   `value` mediumtext NOT NULL,
   KEY `root_id_tag` (`root_id`,`tag`),
-  KEY `tag_root_id` (`tag`,`root_id`),
   KEY `root_id` (`root_id`),
-  KEY `tag` (`tag`),
-  KEY `tag_2` (`tag`)
+  KEY `tag` (`tag`)
 ) ENGINE=MyISAM DEFAULT CHARSET=latin1;
 
 CREATE TABLE `genome_db` (
@@ -295,8 +274,8 @@ CREATE TABLE `genome_db` (
   `is_high_coverage` tinyint(1) NOT NULL DEFAULT '0',
   `genome_component` varchar(5) DEFAULT NULL,
   `locator` varchar(400) DEFAULT NULL,
-  `first_release` smallint(5) unsigned DEFAULT NULL,
-  `last_release` smallint(5) unsigned DEFAULT NULL,
+  `first_release` smallint(6) DEFAULT NULL,
+  `last_release` smallint(6) DEFAULT NULL,
   PRIMARY KEY (`genome_db_id`),
   UNIQUE KEY `name` (`name`,`assembly`,`genome_component`),
   KEY `taxon_id` (`taxon_id`)
@@ -391,7 +370,10 @@ CREATE TABLE `homology` (
   `wga_coverage` decimal(5,2) DEFAULT NULL,
   `is_high_confidence` tinyint(1) DEFAULT NULL,
   PRIMARY KEY (`homology_id`),
-  KEY `method_link_species_set_id` (`method_link_species_set_id`)
+  KEY `method_link_species_set_id` (`method_link_species_set_id`),
+  KEY `species_tree_node_id` (`species_tree_node_id`),
+  KEY `gene_tree_node_id` (`gene_tree_node_id`),
+  KEY `gene_tree_root_id` (`gene_tree_root_id`)
 ) ENGINE=MyISAM AUTO_INCREMENT=169 DEFAULT CHARSET=latin1;
 
 CREATE TABLE `homology_member` (
@@ -402,10 +384,10 @@ CREATE TABLE `homology_member` (
   `perc_cov` float unsigned DEFAULT '0',
   `perc_id` float unsigned DEFAULT '0',
   `perc_pos` float unsigned DEFAULT '0',
-  UNIQUE KEY `homology_member_id` (`homology_id`,`gene_member_id`),
+  PRIMARY KEY (`homology_id`,`gene_member_id`),
   KEY `homology_id` (`homology_id`),
-  KEY `member_id` (`gene_member_id`),
-  KEY `peptide_member_id` (`seq_member_id`)
+  KEY `gene_member_id` (`gene_member_id`),
+  KEY `seq_member_id` (`seq_member_id`)
 ) ENGINE=MyISAM DEFAULT CHARSET=latin1 MAX_ROWS=300000000;
 
 CREATE TABLE `mapping_session` (
@@ -417,44 +399,6 @@ CREATE TABLE `mapping_session` (
   `prefix` char(4) NOT NULL,
   PRIMARY KEY (`mapping_session_id`),
   UNIQUE KEY `type` (`type`,`rel_from`,`rel_to`,`prefix`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1;
-
-CREATE TABLE `member` (
-  `member_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `stable_id` varchar(128) NOT NULL,
-  `version` int(10) DEFAULT '0',
-  `source_name` enum('ENSEMBLGENE','ENSEMBLPEP','Uniprot/SPTREMBL','Uniprot/SWISSPROT','ENSEMBLTRANS','EXTERNALCDS') NOT NULL,
-  `taxon_id` int(10) unsigned NOT NULL,
-  `genome_db_id` int(10) unsigned DEFAULT NULL,
-  `sequence_id` int(10) unsigned DEFAULT NULL,
-  `gene_member_id` int(10) unsigned DEFAULT NULL,
-  `canonical_member_id` int(10) unsigned DEFAULT NULL,
-  `description` text,
-  `chr_name` char(40) DEFAULT NULL,
-  `chr_start` int(10) DEFAULT NULL,
-  `chr_end` int(10) DEFAULT NULL,
-  `chr_strand` tinyint(1) NOT NULL,
-  `display_label` varchar(128) DEFAULT NULL,
-  PRIMARY KEY (`member_id`),
-  UNIQUE KEY `source_stable_id` (`stable_id`,`source_name`),
-  KEY `taxon_id` (`taxon_id`),
-  KEY `stable_id` (`stable_id`),
-  KEY `source_name` (`source_name`),
-  KEY `sequence_id` (`sequence_id`),
-  KEY `gene_member_id` (`gene_member_id`),
-  KEY `gdb_name_start_end` (`genome_db_id`,`chr_name`,`chr_start`,`chr_end`),
-  KEY `canonical_member_id` (`canonical_member_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1 MAX_ROWS=100000000;
-
-CREATE TABLE `member_production_counts` (
-  `stable_id` varchar(128) NOT NULL,
-  `families` tinyint(1) unsigned DEFAULT '0',
-  `gene_trees` tinyint(1) unsigned DEFAULT '0',
-  `gene_gain_loss_trees` tinyint(1) unsigned DEFAULT '0',
-  `orthologues` int(10) unsigned DEFAULT '0',
-  `paralogues` int(10) unsigned DEFAULT '0',
-  `homoeologues` int(10) unsigned DEFAULT '0',
-  KEY `stable_id` (`stable_id`)
 ) ENGINE=MyISAM DEFAULT CHARSET=latin1;
 
 CREATE TABLE `member_xref` (
@@ -473,7 +417,7 @@ CREATE TABLE `meta` (
   PRIMARY KEY (`meta_id`),
   UNIQUE KEY `species_key_value_idx` (`species_id`,`meta_key`,`meta_value`(255)),
   KEY `species_value_idx` (`species_id`,`meta_value`(255))
-) ENGINE=MyISAM AUTO_INCREMENT=79 DEFAULT CHARSET=latin1;
+) ENGINE=MyISAM AUTO_INCREMENT=83 DEFAULT CHARSET=latin1;
 
 CREATE TABLE `method_link` (
   `method_link_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
@@ -485,15 +429,16 @@ CREATE TABLE `method_link` (
 
 CREATE TABLE `method_link_species_set` (
   `method_link_species_set_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `method_link_id` int(10) unsigned DEFAULT NULL,
-  `species_set_id` int(10) unsigned NOT NULL DEFAULT '0',
+  `method_link_id` int(10) unsigned NOT NULL,
+  `species_set_id` int(10) unsigned NOT NULL,
   `name` varchar(255) NOT NULL DEFAULT '',
   `source` varchar(255) NOT NULL DEFAULT 'ensembl',
   `url` varchar(255) NOT NULL DEFAULT '',
-  `first_release` smallint(5) unsigned DEFAULT NULL,
-  `last_release` smallint(5) unsigned DEFAULT NULL,
+  `first_release` smallint(6) DEFAULT NULL,
+  `last_release` smallint(6) DEFAULT NULL,
   PRIMARY KEY (`method_link_species_set_id`),
-  UNIQUE KEY `method_link_id` (`method_link_id`,`species_set_id`)
+  UNIQUE KEY `method_link_id` (`method_link_id`,`species_set_id`),
+  KEY `species_set_id` (`species_set_id`)
 ) ENGINE=MyISAM AUTO_INCREMENT=50977 DEFAULT CHARSET=latin1;
 
 CREATE TABLE `method_link_species_set_attr` (
@@ -554,7 +499,7 @@ CREATE TABLE `other_member_sequence` (
 ) ENGINE=MyISAM DEFAULT CHARSET=latin1 MAX_ROWS=10000000 AVG_ROW_LENGTH=60000;
 
 CREATE TABLE `peptide_align_feature` (
-  `peptide_align_feature_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `peptide_align_feature_id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `qmember_id` int(10) unsigned NOT NULL,
   `hmember_id` int(10) unsigned NOT NULL,
   `qgenome_db_id` int(10) unsigned DEFAULT NULL,
@@ -575,1364 +520,6 @@ CREATE TABLE `peptide_align_feature` (
   PRIMARY KEY (`peptide_align_feature_id`)
 ) ENGINE=MyISAM DEFAULT CHARSET=latin1 MAX_ROWS=100000000 AVG_ROW_LENGTH=133;
 
-CREATE TABLE `peptide_align_feature_ailuropoda_melanoleuca_109` (
-  `peptide_align_feature_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `qmember_id` int(10) unsigned NOT NULL,
-  `hmember_id` int(10) unsigned NOT NULL,
-  `qgenome_db_id` int(10) unsigned NOT NULL,
-  `hgenome_db_id` int(10) unsigned NOT NULL,
-  `analysis_id` int(10) unsigned NOT NULL,
-  `qstart` int(10) NOT NULL DEFAULT '0',
-  `qend` int(10) NOT NULL DEFAULT '0',
-  `hstart` int(11) NOT NULL DEFAULT '0',
-  `hend` int(11) NOT NULL DEFAULT '0',
-  `score` double(16,4) NOT NULL DEFAULT '0.0000',
-  `evalue` double DEFAULT NULL,
-  `align_length` int(10) DEFAULT NULL,
-  `identical_matches` int(10) DEFAULT NULL,
-  `perc_ident` int(10) DEFAULT NULL,
-  `positive_matches` int(10) DEFAULT NULL,
-  `perc_pos` int(10) DEFAULT NULL,
-  `hit_rank` int(10) DEFAULT NULL,
-  `cigar_line` mediumtext,
-  PRIMARY KEY (`peptide_align_feature_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1 MAX_ROWS=300000000 AVG_ROW_LENGTH=133;
-
-CREATE TABLE `peptide_align_feature_anolis_carolinensis_111` (
-  `peptide_align_feature_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `qmember_id` int(10) unsigned NOT NULL,
-  `hmember_id` int(10) unsigned NOT NULL,
-  `qgenome_db_id` int(10) unsigned NOT NULL,
-  `hgenome_db_id` int(10) unsigned NOT NULL,
-  `analysis_id` int(10) unsigned NOT NULL,
-  `qstart` int(10) NOT NULL DEFAULT '0',
-  `qend` int(10) NOT NULL DEFAULT '0',
-  `hstart` int(11) NOT NULL DEFAULT '0',
-  `hend` int(11) NOT NULL DEFAULT '0',
-  `score` double(16,4) NOT NULL DEFAULT '0.0000',
-  `evalue` double DEFAULT NULL,
-  `align_length` int(10) DEFAULT NULL,
-  `identical_matches` int(10) DEFAULT NULL,
-  `perc_ident` int(10) DEFAULT NULL,
-  `positive_matches` int(10) DEFAULT NULL,
-  `perc_pos` int(10) DEFAULT NULL,
-  `hit_rank` int(10) DEFAULT NULL,
-  `cigar_line` mediumtext,
-  PRIMARY KEY (`peptide_align_feature_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1 MAX_ROWS=300000000 AVG_ROW_LENGTH=133;
-
-CREATE TABLE `peptide_align_feature_bos_taurus_122` (
-  `peptide_align_feature_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `qmember_id` int(10) unsigned NOT NULL,
-  `hmember_id` int(10) unsigned NOT NULL,
-  `qgenome_db_id` int(10) unsigned NOT NULL,
-  `hgenome_db_id` int(10) unsigned NOT NULL,
-  `analysis_id` int(10) unsigned NOT NULL,
-  `qstart` int(10) NOT NULL DEFAULT '0',
-  `qend` int(10) NOT NULL DEFAULT '0',
-  `hstart` int(11) NOT NULL DEFAULT '0',
-  `hend` int(11) NOT NULL DEFAULT '0',
-  `score` double(16,4) NOT NULL DEFAULT '0.0000',
-  `evalue` double DEFAULT NULL,
-  `align_length` int(10) DEFAULT NULL,
-  `identical_matches` int(10) DEFAULT NULL,
-  `perc_ident` int(10) DEFAULT NULL,
-  `positive_matches` int(10) DEFAULT NULL,
-  `perc_pos` int(10) DEFAULT NULL,
-  `hit_rank` int(10) DEFAULT NULL,
-  `cigar_line` mediumtext,
-  PRIMARY KEY (`peptide_align_feature_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1 MAX_ROWS=300000000 AVG_ROW_LENGTH=133;
-
-CREATE TABLE `peptide_align_feature_caenorhabditis_elegans_133` (
-  `peptide_align_feature_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `qmember_id` int(10) unsigned NOT NULL,
-  `hmember_id` int(10) unsigned NOT NULL,
-  `qgenome_db_id` int(10) unsigned NOT NULL,
-  `hgenome_db_id` int(10) unsigned NOT NULL,
-  `qstart` int(10) NOT NULL DEFAULT '0',
-  `qend` int(10) NOT NULL DEFAULT '0',
-  `hstart` int(11) NOT NULL DEFAULT '0',
-  `hend` int(11) NOT NULL DEFAULT '0',
-  `score` double(16,4) NOT NULL DEFAULT '0.0000',
-  `evalue` double DEFAULT NULL,
-  `align_length` int(10) DEFAULT NULL,
-  `identical_matches` int(10) DEFAULT NULL,
-  `perc_ident` int(10) DEFAULT NULL,
-  `positive_matches` int(10) DEFAULT NULL,
-  `perc_pos` int(10) DEFAULT NULL,
-  `hit_rank` int(10) DEFAULT NULL,
-  `cigar_line` mediumtext,
-  PRIMARY KEY (`peptide_align_feature_id`),
-  KEY `hmember_hit` (`hmember_id`,`hit_rank`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1 MAX_ROWS=300000000 AVG_ROW_LENGTH=133;
-
-CREATE TABLE `peptide_align_feature_callithrix_jacchus_117` (
-  `peptide_align_feature_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `qmember_id` int(10) unsigned NOT NULL,
-  `hmember_id` int(10) unsigned NOT NULL,
-  `qgenome_db_id` int(10) unsigned NOT NULL,
-  `hgenome_db_id` int(10) unsigned NOT NULL,
-  `analysis_id` int(10) unsigned NOT NULL,
-  `qstart` int(10) NOT NULL DEFAULT '0',
-  `qend` int(10) NOT NULL DEFAULT '0',
-  `hstart` int(11) NOT NULL DEFAULT '0',
-  `hend` int(11) NOT NULL DEFAULT '0',
-  `score` double(16,4) NOT NULL DEFAULT '0.0000',
-  `evalue` double DEFAULT NULL,
-  `align_length` int(10) DEFAULT NULL,
-  `identical_matches` int(10) DEFAULT NULL,
-  `perc_ident` int(10) DEFAULT NULL,
-  `positive_matches` int(10) DEFAULT NULL,
-  `perc_pos` int(10) DEFAULT NULL,
-  `hit_rank` int(10) DEFAULT NULL,
-  `cigar_line` mediumtext,
-  PRIMARY KEY (`peptide_align_feature_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1 MAX_ROWS=300000000 AVG_ROW_LENGTH=133;
-
-CREATE TABLE `peptide_align_feature_canis_familiaris_135` (
-  `peptide_align_feature_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `qmember_id` int(10) unsigned NOT NULL,
-  `hmember_id` int(10) unsigned NOT NULL,
-  `qgenome_db_id` int(10) unsigned NOT NULL,
-  `hgenome_db_id` int(10) unsigned NOT NULL,
-  `qstart` int(10) NOT NULL DEFAULT '0',
-  `qend` int(10) NOT NULL DEFAULT '0',
-  `hstart` int(11) NOT NULL DEFAULT '0',
-  `hend` int(11) NOT NULL DEFAULT '0',
-  `score` double(16,4) NOT NULL DEFAULT '0.0000',
-  `evalue` double DEFAULT NULL,
-  `align_length` int(10) DEFAULT NULL,
-  `identical_matches` int(10) DEFAULT NULL,
-  `perc_ident` int(10) DEFAULT NULL,
-  `positive_matches` int(10) DEFAULT NULL,
-  `perc_pos` int(10) DEFAULT NULL,
-  `hit_rank` int(10) DEFAULT NULL,
-  `cigar_line` mediumtext,
-  PRIMARY KEY (`peptide_align_feature_id`),
-  KEY `hmember_hit` (`hmember_id`,`hit_rank`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1 MAX_ROWS=300000000 AVG_ROW_LENGTH=133;
-
-CREATE TABLE `peptide_align_feature_cavia_porcellus_69` (
-  `peptide_align_feature_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `qmember_id` int(10) unsigned NOT NULL,
-  `hmember_id` int(10) unsigned NOT NULL,
-  `qgenome_db_id` int(10) unsigned NOT NULL,
-  `hgenome_db_id` int(10) unsigned NOT NULL,
-  `analysis_id` int(10) unsigned NOT NULL,
-  `qstart` int(10) NOT NULL DEFAULT '0',
-  `qend` int(10) NOT NULL DEFAULT '0',
-  `hstart` int(11) NOT NULL DEFAULT '0',
-  `hend` int(11) NOT NULL DEFAULT '0',
-  `score` double(16,4) NOT NULL DEFAULT '0.0000',
-  `evalue` double DEFAULT NULL,
-  `align_length` int(10) DEFAULT NULL,
-  `identical_matches` int(10) DEFAULT NULL,
-  `perc_ident` int(10) DEFAULT NULL,
-  `positive_matches` int(10) DEFAULT NULL,
-  `perc_pos` int(10) DEFAULT NULL,
-  `hit_rank` int(10) DEFAULT NULL,
-  `cigar_line` mediumtext,
-  PRIMARY KEY (`peptide_align_feature_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1 MAX_ROWS=300000000 AVG_ROW_LENGTH=133;
-
-CREATE TABLE `peptide_align_feature_choloepus_hoffmanni_78` (
-  `peptide_align_feature_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `qmember_id` int(10) unsigned NOT NULL,
-  `hmember_id` int(10) unsigned NOT NULL,
-  `qgenome_db_id` int(10) unsigned NOT NULL,
-  `hgenome_db_id` int(10) unsigned NOT NULL,
-  `analysis_id` int(10) unsigned NOT NULL,
-  `qstart` int(10) NOT NULL DEFAULT '0',
-  `qend` int(10) NOT NULL DEFAULT '0',
-  `hstart` int(11) NOT NULL DEFAULT '0',
-  `hend` int(11) NOT NULL DEFAULT '0',
-  `score` double(16,4) NOT NULL DEFAULT '0.0000',
-  `evalue` double DEFAULT NULL,
-  `align_length` int(10) DEFAULT NULL,
-  `identical_matches` int(10) DEFAULT NULL,
-  `perc_ident` int(10) DEFAULT NULL,
-  `positive_matches` int(10) DEFAULT NULL,
-  `perc_pos` int(10) DEFAULT NULL,
-  `hit_rank` int(10) DEFAULT NULL,
-  `cigar_line` mediumtext,
-  PRIMARY KEY (`peptide_align_feature_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1 MAX_ROWS=300000000 AVG_ROW_LENGTH=133;
-
-CREATE TABLE `peptide_align_feature_ciona_intestinalis_128` (
-  `peptide_align_feature_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `qmember_id` int(10) unsigned NOT NULL,
-  `hmember_id` int(10) unsigned NOT NULL,
-  `qgenome_db_id` int(10) unsigned NOT NULL,
-  `hgenome_db_id` int(10) unsigned NOT NULL,
-  `analysis_id` int(10) unsigned NOT NULL,
-  `qstart` int(10) NOT NULL DEFAULT '0',
-  `qend` int(10) NOT NULL DEFAULT '0',
-  `hstart` int(11) NOT NULL DEFAULT '0',
-  `hend` int(11) NOT NULL DEFAULT '0',
-  `score` double(16,4) NOT NULL DEFAULT '0.0000',
-  `evalue` double DEFAULT NULL,
-  `align_length` int(10) DEFAULT NULL,
-  `identical_matches` int(10) DEFAULT NULL,
-  `perc_ident` int(10) DEFAULT NULL,
-  `positive_matches` int(10) DEFAULT NULL,
-  `perc_pos` int(10) DEFAULT NULL,
-  `hit_rank` int(10) DEFAULT NULL,
-  `cigar_line` mediumtext,
-  PRIMARY KEY (`peptide_align_feature_id`),
-  KEY `hmember_hit` (`hmember_id`,`hit_rank`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1 MAX_ROWS=300000000 AVG_ROW_LENGTH=133;
-
-CREATE TABLE `peptide_align_feature_ciona_savignyi_27` (
-  `peptide_align_feature_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `qmember_id` int(10) unsigned NOT NULL,
-  `hmember_id` int(10) unsigned NOT NULL,
-  `qgenome_db_id` int(10) unsigned NOT NULL,
-  `hgenome_db_id` int(10) unsigned NOT NULL,
-  `analysis_id` int(10) unsigned NOT NULL,
-  `qstart` int(10) NOT NULL DEFAULT '0',
-  `qend` int(10) NOT NULL DEFAULT '0',
-  `hstart` int(11) NOT NULL DEFAULT '0',
-  `hend` int(11) NOT NULL DEFAULT '0',
-  `score` double(16,4) NOT NULL DEFAULT '0.0000',
-  `evalue` double DEFAULT NULL,
-  `align_length` int(10) DEFAULT NULL,
-  `identical_matches` int(10) DEFAULT NULL,
-  `perc_ident` int(10) DEFAULT NULL,
-  `positive_matches` int(10) DEFAULT NULL,
-  `perc_pos` int(10) DEFAULT NULL,
-  `hit_rank` int(10) DEFAULT NULL,
-  `cigar_line` mediumtext,
-  PRIMARY KEY (`peptide_align_feature_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1 MAX_ROWS=300000000 AVG_ROW_LENGTH=133;
-
-CREATE TABLE `peptide_align_feature_danio_rerio_110` (
-  `peptide_align_feature_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `qmember_id` int(10) unsigned NOT NULL,
-  `hmember_id` int(10) unsigned NOT NULL,
-  `qgenome_db_id` int(10) unsigned NOT NULL,
-  `hgenome_db_id` int(10) unsigned NOT NULL,
-  `qstart` int(10) NOT NULL DEFAULT '0',
-  `qend` int(10) NOT NULL DEFAULT '0',
-  `hstart` int(11) NOT NULL DEFAULT '0',
-  `hend` int(11) NOT NULL DEFAULT '0',
-  `score` double(16,4) NOT NULL DEFAULT '0.0000',
-  `evalue` double DEFAULT NULL,
-  `align_length` int(10) DEFAULT NULL,
-  `identical_matches` int(10) DEFAULT NULL,
-  `perc_ident` int(10) DEFAULT NULL,
-  `positive_matches` int(10) DEFAULT NULL,
-  `perc_pos` int(10) DEFAULT NULL,
-  `hit_rank` int(10) DEFAULT NULL,
-  `cigar_line` mediumtext,
-  PRIMARY KEY (`peptide_align_feature_id`),
-  KEY `hmember_hit` (`hmember_id`,`hit_rank`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1 MAX_ROWS=300000000 AVG_ROW_LENGTH=133;
-
-CREATE TABLE `peptide_align_feature_dasypus_novemcinctus_86` (
-  `peptide_align_feature_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `qmember_id` int(10) unsigned NOT NULL,
-  `hmember_id` int(10) unsigned NOT NULL,
-  `qgenome_db_id` int(10) unsigned NOT NULL,
-  `hgenome_db_id` int(10) unsigned NOT NULL,
-  `analysis_id` int(10) unsigned NOT NULL,
-  `qstart` int(10) NOT NULL DEFAULT '0',
-  `qend` int(10) NOT NULL DEFAULT '0',
-  `hstart` int(11) NOT NULL DEFAULT '0',
-  `hend` int(11) NOT NULL DEFAULT '0',
-  `score` double(16,4) NOT NULL DEFAULT '0.0000',
-  `evalue` double DEFAULT NULL,
-  `align_length` int(10) DEFAULT NULL,
-  `identical_matches` int(10) DEFAULT NULL,
-  `perc_ident` int(10) DEFAULT NULL,
-  `positive_matches` int(10) DEFAULT NULL,
-  `perc_pos` int(10) DEFAULT NULL,
-  `hit_rank` int(10) DEFAULT NULL,
-  `cigar_line` mediumtext,
-  PRIMARY KEY (`peptide_align_feature_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1 MAX_ROWS=300000000 AVG_ROW_LENGTH=133;
-
-CREATE TABLE `peptide_align_feature_dipodomys_ordii_83` (
-  `peptide_align_feature_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `qmember_id` int(10) unsigned NOT NULL,
-  `hmember_id` int(10) unsigned NOT NULL,
-  `qgenome_db_id` int(10) unsigned NOT NULL,
-  `hgenome_db_id` int(10) unsigned NOT NULL,
-  `analysis_id` int(10) unsigned NOT NULL,
-  `qstart` int(10) NOT NULL DEFAULT '0',
-  `qend` int(10) NOT NULL DEFAULT '0',
-  `hstart` int(11) NOT NULL DEFAULT '0',
-  `hend` int(11) NOT NULL DEFAULT '0',
-  `score` double(16,4) NOT NULL DEFAULT '0.0000',
-  `evalue` double DEFAULT NULL,
-  `align_length` int(10) DEFAULT NULL,
-  `identical_matches` int(10) DEFAULT NULL,
-  `perc_ident` int(10) DEFAULT NULL,
-  `positive_matches` int(10) DEFAULT NULL,
-  `perc_pos` int(10) DEFAULT NULL,
-  `hit_rank` int(10) DEFAULT NULL,
-  `cigar_line` mediumtext,
-  PRIMARY KEY (`peptide_align_feature_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1 MAX_ROWS=300000000 AVG_ROW_LENGTH=133;
-
-CREATE TABLE `peptide_align_feature_drosophila_melanogaster_105` (
-  `peptide_align_feature_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `qmember_id` int(10) unsigned NOT NULL,
-  `hmember_id` int(10) unsigned NOT NULL,
-  `qgenome_db_id` int(10) unsigned NOT NULL,
-  `hgenome_db_id` int(10) unsigned NOT NULL,
-  `analysis_id` int(10) unsigned NOT NULL,
-  `qstart` int(10) NOT NULL DEFAULT '0',
-  `qend` int(10) NOT NULL DEFAULT '0',
-  `hstart` int(11) NOT NULL DEFAULT '0',
-  `hend` int(11) NOT NULL DEFAULT '0',
-  `score` double(16,4) NOT NULL DEFAULT '0.0000',
-  `evalue` double DEFAULT NULL,
-  `align_length` int(10) DEFAULT NULL,
-  `identical_matches` int(10) DEFAULT NULL,
-  `perc_ident` int(10) DEFAULT NULL,
-  `positive_matches` int(10) DEFAULT NULL,
-  `perc_pos` int(10) DEFAULT NULL,
-  `hit_rank` int(10) DEFAULT NULL,
-  `cigar_line` mediumtext,
-  PRIMARY KEY (`peptide_align_feature_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1 MAX_ROWS=300000000 AVG_ROW_LENGTH=133;
-
-CREATE TABLE `peptide_align_feature_echinops_telfairi_33` (
-  `peptide_align_feature_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `qmember_id` int(10) unsigned NOT NULL,
-  `hmember_id` int(10) unsigned NOT NULL,
-  `qgenome_db_id` int(10) unsigned NOT NULL,
-  `hgenome_db_id` int(10) unsigned NOT NULL,
-  `analysis_id` int(10) unsigned NOT NULL,
-  `qstart` int(10) NOT NULL DEFAULT '0',
-  `qend` int(10) NOT NULL DEFAULT '0',
-  `hstart` int(11) NOT NULL DEFAULT '0',
-  `hend` int(11) NOT NULL DEFAULT '0',
-  `score` double(16,4) NOT NULL DEFAULT '0.0000',
-  `evalue` double DEFAULT NULL,
-  `align_length` int(10) DEFAULT NULL,
-  `identical_matches` int(10) DEFAULT NULL,
-  `perc_ident` int(10) DEFAULT NULL,
-  `positive_matches` int(10) DEFAULT NULL,
-  `perc_pos` int(10) DEFAULT NULL,
-  `hit_rank` int(10) DEFAULT NULL,
-  `cigar_line` mediumtext,
-  PRIMARY KEY (`peptide_align_feature_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1 MAX_ROWS=300000000 AVG_ROW_LENGTH=133;
-
-CREATE TABLE `peptide_align_feature_equus_caballus_61` (
-  `peptide_align_feature_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `qmember_id` int(10) unsigned NOT NULL,
-  `hmember_id` int(10) unsigned NOT NULL,
-  `qgenome_db_id` int(10) unsigned NOT NULL,
-  `hgenome_db_id` int(10) unsigned NOT NULL,
-  `analysis_id` int(10) unsigned NOT NULL,
-  `qstart` int(10) NOT NULL DEFAULT '0',
-  `qend` int(10) NOT NULL DEFAULT '0',
-  `hstart` int(11) NOT NULL DEFAULT '0',
-  `hend` int(11) NOT NULL DEFAULT '0',
-  `score` double(16,4) NOT NULL DEFAULT '0.0000',
-  `evalue` double DEFAULT NULL,
-  `align_length` int(10) DEFAULT NULL,
-  `identical_matches` int(10) DEFAULT NULL,
-  `perc_ident` int(10) DEFAULT NULL,
-  `positive_matches` int(10) DEFAULT NULL,
-  `perc_pos` int(10) DEFAULT NULL,
-  `hit_rank` int(10) DEFAULT NULL,
-  `cigar_line` mediumtext,
-  PRIMARY KEY (`peptide_align_feature_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1 MAX_ROWS=300000000 AVG_ROW_LENGTH=133;
-
-CREATE TABLE `peptide_align_feature_erinaceus_europaeus_49` (
-  `peptide_align_feature_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `qmember_id` int(10) unsigned NOT NULL,
-  `hmember_id` int(10) unsigned NOT NULL,
-  `qgenome_db_id` int(10) unsigned NOT NULL,
-  `hgenome_db_id` int(10) unsigned NOT NULL,
-  `analysis_id` int(10) unsigned NOT NULL,
-  `qstart` int(10) NOT NULL DEFAULT '0',
-  `qend` int(10) NOT NULL DEFAULT '0',
-  `hstart` int(11) NOT NULL DEFAULT '0',
-  `hend` int(11) NOT NULL DEFAULT '0',
-  `score` double(16,4) NOT NULL DEFAULT '0.0000',
-  `evalue` double DEFAULT NULL,
-  `align_length` int(10) DEFAULT NULL,
-  `identical_matches` int(10) DEFAULT NULL,
-  `perc_ident` int(10) DEFAULT NULL,
-  `positive_matches` int(10) DEFAULT NULL,
-  `perc_pos` int(10) DEFAULT NULL,
-  `hit_rank` int(10) DEFAULT NULL,
-  `cigar_line` mediumtext,
-  PRIMARY KEY (`peptide_align_feature_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1 MAX_ROWS=300000000 AVG_ROW_LENGTH=133;
-
-CREATE TABLE `peptide_align_feature_felis_catus_66` (
-  `peptide_align_feature_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `qmember_id` int(10) unsigned NOT NULL,
-  `hmember_id` int(10) unsigned NOT NULL,
-  `qgenome_db_id` int(10) unsigned NOT NULL,
-  `hgenome_db_id` int(10) unsigned NOT NULL,
-  `analysis_id` int(10) unsigned NOT NULL,
-  `qstart` int(10) NOT NULL DEFAULT '0',
-  `qend` int(10) NOT NULL DEFAULT '0',
-  `hstart` int(11) NOT NULL DEFAULT '0',
-  `hend` int(11) NOT NULL DEFAULT '0',
-  `score` double(16,4) NOT NULL DEFAULT '0.0000',
-  `evalue` double DEFAULT NULL,
-  `align_length` int(10) DEFAULT NULL,
-  `identical_matches` int(10) DEFAULT NULL,
-  `perc_ident` int(10) DEFAULT NULL,
-  `positive_matches` int(10) DEFAULT NULL,
-  `perc_pos` int(10) DEFAULT NULL,
-  `hit_rank` int(10) DEFAULT NULL,
-  `cigar_line` mediumtext,
-  PRIMARY KEY (`peptide_align_feature_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1 MAX_ROWS=300000000 AVG_ROW_LENGTH=133;
-
-CREATE TABLE `peptide_align_feature_gadus_morhua_126` (
-  `peptide_align_feature_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `qmember_id` int(10) unsigned NOT NULL,
-  `hmember_id` int(10) unsigned NOT NULL,
-  `qgenome_db_id` int(10) unsigned NOT NULL,
-  `hgenome_db_id` int(10) unsigned NOT NULL,
-  `analysis_id` int(10) unsigned NOT NULL,
-  `qstart` int(10) NOT NULL DEFAULT '0',
-  `qend` int(10) NOT NULL DEFAULT '0',
-  `hstart` int(11) NOT NULL DEFAULT '0',
-  `hend` int(11) NOT NULL DEFAULT '0',
-  `score` double(16,4) NOT NULL DEFAULT '0.0000',
-  `evalue` double DEFAULT NULL,
-  `align_length` int(10) DEFAULT NULL,
-  `identical_matches` int(10) DEFAULT NULL,
-  `perc_ident` int(10) DEFAULT NULL,
-  `positive_matches` int(10) DEFAULT NULL,
-  `perc_pos` int(10) DEFAULT NULL,
-  `hit_rank` int(10) DEFAULT NULL,
-  `cigar_line` mediumtext,
-  PRIMARY KEY (`peptide_align_feature_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1 MAX_ROWS=300000000 AVG_ROW_LENGTH=133;
-
-CREATE TABLE `peptide_align_feature_gallus_gallus_42` (
-  `peptide_align_feature_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `qmember_id` int(10) unsigned NOT NULL,
-  `hmember_id` int(10) unsigned NOT NULL,
-  `qgenome_db_id` int(10) unsigned NOT NULL,
-  `hgenome_db_id` int(10) unsigned NOT NULL,
-  `analysis_id` int(10) unsigned NOT NULL,
-  `qstart` int(10) NOT NULL DEFAULT '0',
-  `qend` int(10) NOT NULL DEFAULT '0',
-  `hstart` int(11) NOT NULL DEFAULT '0',
-  `hend` int(11) NOT NULL DEFAULT '0',
-  `score` double(16,4) NOT NULL DEFAULT '0.0000',
-  `evalue` double DEFAULT NULL,
-  `align_length` int(10) DEFAULT NULL,
-  `identical_matches` int(10) DEFAULT NULL,
-  `perc_ident` int(10) DEFAULT NULL,
-  `positive_matches` int(10) DEFAULT NULL,
-  `perc_pos` int(10) DEFAULT NULL,
-  `hit_rank` int(10) DEFAULT NULL,
-  `cigar_line` mediumtext,
-  PRIMARY KEY (`peptide_align_feature_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1 MAX_ROWS=300000000 AVG_ROW_LENGTH=133;
-
-CREATE TABLE `peptide_align_feature_gasterosteus_aculeatus_36` (
-  `peptide_align_feature_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `qmember_id` int(10) unsigned NOT NULL,
-  `hmember_id` int(10) unsigned NOT NULL,
-  `qgenome_db_id` int(10) unsigned NOT NULL,
-  `hgenome_db_id` int(10) unsigned NOT NULL,
-  `analysis_id` int(10) unsigned NOT NULL,
-  `qstart` int(10) NOT NULL DEFAULT '0',
-  `qend` int(10) NOT NULL DEFAULT '0',
-  `hstart` int(11) NOT NULL DEFAULT '0',
-  `hend` int(11) NOT NULL DEFAULT '0',
-  `score` double(16,4) NOT NULL DEFAULT '0.0000',
-  `evalue` double DEFAULT NULL,
-  `align_length` int(10) DEFAULT NULL,
-  `identical_matches` int(10) DEFAULT NULL,
-  `perc_ident` int(10) DEFAULT NULL,
-  `positive_matches` int(10) DEFAULT NULL,
-  `perc_pos` int(10) DEFAULT NULL,
-  `hit_rank` int(10) DEFAULT NULL,
-  `cigar_line` mediumtext,
-  PRIMARY KEY (`peptide_align_feature_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1 MAX_ROWS=300000000 AVG_ROW_LENGTH=133;
-
-CREATE TABLE `peptide_align_feature_gorilla_gorilla_123` (
-  `peptide_align_feature_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `qmember_id` int(10) unsigned NOT NULL,
-  `hmember_id` int(10) unsigned NOT NULL,
-  `qgenome_db_id` int(10) unsigned NOT NULL,
-  `hgenome_db_id` int(10) unsigned NOT NULL,
-  `analysis_id` int(10) unsigned NOT NULL,
-  `qstart` int(10) NOT NULL DEFAULT '0',
-  `qend` int(10) NOT NULL DEFAULT '0',
-  `hstart` int(11) NOT NULL DEFAULT '0',
-  `hend` int(11) NOT NULL DEFAULT '0',
-  `score` double(16,4) NOT NULL DEFAULT '0.0000',
-  `evalue` double DEFAULT NULL,
-  `align_length` int(10) DEFAULT NULL,
-  `identical_matches` int(10) DEFAULT NULL,
-  `perc_ident` int(10) DEFAULT NULL,
-  `positive_matches` int(10) DEFAULT NULL,
-  `perc_pos` int(10) DEFAULT NULL,
-  `hit_rank` int(10) DEFAULT NULL,
-  `cigar_line` mediumtext,
-  PRIMARY KEY (`peptide_align_feature_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1 MAX_ROWS=300000000 AVG_ROW_LENGTH=133;
-
-CREATE TABLE `peptide_align_feature_homo_sapiens_90` (
-  `peptide_align_feature_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `qmember_id` int(10) unsigned NOT NULL,
-  `hmember_id` int(10) unsigned NOT NULL,
-  `qgenome_db_id` int(10) unsigned NOT NULL,
-  `hgenome_db_id` int(10) unsigned NOT NULL,
-  `qstart` int(10) NOT NULL DEFAULT '0',
-  `qend` int(10) NOT NULL DEFAULT '0',
-  `hstart` int(11) NOT NULL DEFAULT '0',
-  `hend` int(11) NOT NULL DEFAULT '0',
-  `score` double(16,4) NOT NULL DEFAULT '0.0000',
-  `evalue` double DEFAULT NULL,
-  `align_length` int(10) DEFAULT NULL,
-  `identical_matches` int(10) DEFAULT NULL,
-  `perc_ident` int(10) DEFAULT NULL,
-  `positive_matches` int(10) DEFAULT NULL,
-  `perc_pos` int(10) DEFAULT NULL,
-  `hit_rank` int(10) DEFAULT NULL,
-  `cigar_line` mediumtext,
-  PRIMARY KEY (`peptide_align_feature_id`),
-  KEY `hmember_hit` (`hmember_id`,`hit_rank`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1 MAX_ROWS=300000000 AVG_ROW_LENGTH=133;
-
-CREATE TABLE `peptide_align_feature_ictidomys_tridecemlineatus_131` (
-  `peptide_align_feature_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `qmember_id` int(10) unsigned NOT NULL,
-  `hmember_id` int(10) unsigned NOT NULL,
-  `qgenome_db_id` int(10) unsigned NOT NULL,
-  `hgenome_db_id` int(10) unsigned NOT NULL,
-  `qstart` int(10) NOT NULL DEFAULT '0',
-  `qend` int(10) NOT NULL DEFAULT '0',
-  `hstart` int(11) NOT NULL DEFAULT '0',
-  `hend` int(11) NOT NULL DEFAULT '0',
-  `score` double(16,4) NOT NULL DEFAULT '0.0000',
-  `evalue` double DEFAULT NULL,
-  `align_length` int(10) DEFAULT NULL,
-  `identical_matches` int(10) DEFAULT NULL,
-  `perc_ident` int(10) DEFAULT NULL,
-  `positive_matches` int(10) DEFAULT NULL,
-  `perc_pos` int(10) DEFAULT NULL,
-  `hit_rank` int(10) DEFAULT NULL,
-  `cigar_line` mediumtext,
-  PRIMARY KEY (`peptide_align_feature_id`),
-  KEY `hmember_hit` (`hmember_id`,`hit_rank`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1 MAX_ROWS=300000000 AVG_ROW_LENGTH=133;
-
-CREATE TABLE `peptide_align_feature_latimeria_chalumnae_129` (
-  `peptide_align_feature_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `qmember_id` int(10) unsigned NOT NULL,
-  `hmember_id` int(10) unsigned NOT NULL,
-  `qgenome_db_id` int(10) unsigned NOT NULL,
-  `hgenome_db_id` int(10) unsigned NOT NULL,
-  `qstart` int(10) NOT NULL DEFAULT '0',
-  `qend` int(10) NOT NULL DEFAULT '0',
-  `hstart` int(11) NOT NULL DEFAULT '0',
-  `hend` int(11) NOT NULL DEFAULT '0',
-  `score` double(16,4) NOT NULL DEFAULT '0.0000',
-  `evalue` double DEFAULT NULL,
-  `align_length` int(10) DEFAULT NULL,
-  `identical_matches` int(10) DEFAULT NULL,
-  `perc_ident` int(10) DEFAULT NULL,
-  `positive_matches` int(10) DEFAULT NULL,
-  `perc_pos` int(10) DEFAULT NULL,
-  `hit_rank` int(10) DEFAULT NULL,
-  `cigar_line` mediumtext,
-  PRIMARY KEY (`peptide_align_feature_id`),
-  KEY `hmember_hit` (`hmember_id`,`hit_rank`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1 MAX_ROWS=300000000 AVG_ROW_LENGTH=133;
-
-CREATE TABLE `peptide_align_feature_loxodonta_africana_98` (
-  `peptide_align_feature_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `qmember_id` int(10) unsigned NOT NULL,
-  `hmember_id` int(10) unsigned NOT NULL,
-  `qgenome_db_id` int(10) unsigned NOT NULL,
-  `hgenome_db_id` int(10) unsigned NOT NULL,
-  `analysis_id` int(10) unsigned NOT NULL,
-  `qstart` int(10) NOT NULL DEFAULT '0',
-  `qend` int(10) NOT NULL DEFAULT '0',
-  `hstart` int(11) NOT NULL DEFAULT '0',
-  `hend` int(11) NOT NULL DEFAULT '0',
-  `score` double(16,4) NOT NULL DEFAULT '0.0000',
-  `evalue` double DEFAULT NULL,
-  `align_length` int(10) DEFAULT NULL,
-  `identical_matches` int(10) DEFAULT NULL,
-  `perc_ident` int(10) DEFAULT NULL,
-  `positive_matches` int(10) DEFAULT NULL,
-  `perc_pos` int(10) DEFAULT NULL,
-  `hit_rank` int(10) DEFAULT NULL,
-  `cigar_line` mediumtext,
-  PRIMARY KEY (`peptide_align_feature_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1 MAX_ROWS=300000000 AVG_ROW_LENGTH=133;
-
-CREATE TABLE `peptide_align_feature_macaca_mulatta_31` (
-  `peptide_align_feature_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `qmember_id` int(10) unsigned NOT NULL,
-  `hmember_id` int(10) unsigned NOT NULL,
-  `qgenome_db_id` int(10) unsigned NOT NULL,
-  `hgenome_db_id` int(10) unsigned NOT NULL,
-  `analysis_id` int(10) unsigned NOT NULL,
-  `qstart` int(10) NOT NULL DEFAULT '0',
-  `qend` int(10) NOT NULL DEFAULT '0',
-  `hstart` int(11) NOT NULL DEFAULT '0',
-  `hend` int(11) NOT NULL DEFAULT '0',
-  `score` double(16,4) NOT NULL DEFAULT '0.0000',
-  `evalue` double DEFAULT NULL,
-  `align_length` int(10) DEFAULT NULL,
-  `identical_matches` int(10) DEFAULT NULL,
-  `perc_ident` int(10) DEFAULT NULL,
-  `positive_matches` int(10) DEFAULT NULL,
-  `perc_pos` int(10) DEFAULT NULL,
-  `hit_rank` int(10) DEFAULT NULL,
-  `cigar_line` mediumtext,
-  PRIMARY KEY (`peptide_align_feature_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1 MAX_ROWS=300000000 AVG_ROW_LENGTH=133;
-
-CREATE TABLE `peptide_align_feature_macropus_eugenii_91` (
-  `peptide_align_feature_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `qmember_id` int(10) unsigned NOT NULL,
-  `hmember_id` int(10) unsigned NOT NULL,
-  `qgenome_db_id` int(10) unsigned NOT NULL,
-  `hgenome_db_id` int(10) unsigned NOT NULL,
-  `analysis_id` int(10) unsigned NOT NULL,
-  `qstart` int(10) NOT NULL DEFAULT '0',
-  `qend` int(10) NOT NULL DEFAULT '0',
-  `hstart` int(11) NOT NULL DEFAULT '0',
-  `hend` int(11) NOT NULL DEFAULT '0',
-  `score` double(16,4) NOT NULL DEFAULT '0.0000',
-  `evalue` double DEFAULT NULL,
-  `align_length` int(10) DEFAULT NULL,
-  `identical_matches` int(10) DEFAULT NULL,
-  `perc_ident` int(10) DEFAULT NULL,
-  `positive_matches` int(10) DEFAULT NULL,
-  `perc_pos` int(10) DEFAULT NULL,
-  `hit_rank` int(10) DEFAULT NULL,
-  `cigar_line` mediumtext,
-  PRIMARY KEY (`peptide_align_feature_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1 MAX_ROWS=300000000 AVG_ROW_LENGTH=133;
-
-CREATE TABLE `peptide_align_feature_meleagris_gallopavo_112` (
-  `peptide_align_feature_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `qmember_id` int(10) unsigned NOT NULL,
-  `hmember_id` int(10) unsigned NOT NULL,
-  `qgenome_db_id` int(10) unsigned NOT NULL,
-  `hgenome_db_id` int(10) unsigned NOT NULL,
-  `analysis_id` int(10) unsigned NOT NULL,
-  `qstart` int(10) NOT NULL DEFAULT '0',
-  `qend` int(10) NOT NULL DEFAULT '0',
-  `hstart` int(11) NOT NULL DEFAULT '0',
-  `hend` int(11) NOT NULL DEFAULT '0',
-  `score` double(16,4) NOT NULL DEFAULT '0.0000',
-  `evalue` double DEFAULT NULL,
-  `align_length` int(10) DEFAULT NULL,
-  `identical_matches` int(10) DEFAULT NULL,
-  `perc_ident` int(10) DEFAULT NULL,
-  `positive_matches` int(10) DEFAULT NULL,
-  `perc_pos` int(10) DEFAULT NULL,
-  `hit_rank` int(10) DEFAULT NULL,
-  `cigar_line` mediumtext,
-  PRIMARY KEY (`peptide_align_feature_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1 MAX_ROWS=300000000 AVG_ROW_LENGTH=133;
-
-CREATE TABLE `peptide_align_feature_microcebus_murinus_58` (
-  `peptide_align_feature_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `qmember_id` int(10) unsigned NOT NULL,
-  `hmember_id` int(10) unsigned NOT NULL,
-  `qgenome_db_id` int(10) unsigned NOT NULL,
-  `hgenome_db_id` int(10) unsigned NOT NULL,
-  `analysis_id` int(10) unsigned NOT NULL,
-  `qstart` int(10) NOT NULL DEFAULT '0',
-  `qend` int(10) NOT NULL DEFAULT '0',
-  `hstart` int(11) NOT NULL DEFAULT '0',
-  `hend` int(11) NOT NULL DEFAULT '0',
-  `score` double(16,4) NOT NULL DEFAULT '0.0000',
-  `evalue` double DEFAULT NULL,
-  `align_length` int(10) DEFAULT NULL,
-  `identical_matches` int(10) DEFAULT NULL,
-  `perc_ident` int(10) DEFAULT NULL,
-  `positive_matches` int(10) DEFAULT NULL,
-  `perc_pos` int(10) DEFAULT NULL,
-  `hit_rank` int(10) DEFAULT NULL,
-  `cigar_line` mediumtext,
-  PRIMARY KEY (`peptide_align_feature_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1 MAX_ROWS=300000000 AVG_ROW_LENGTH=133;
-
-CREATE TABLE `peptide_align_feature_monodelphis_domestica_46` (
-  `peptide_align_feature_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `qmember_id` int(10) unsigned NOT NULL,
-  `hmember_id` int(10) unsigned NOT NULL,
-  `qgenome_db_id` int(10) unsigned NOT NULL,
-  `hgenome_db_id` int(10) unsigned NOT NULL,
-  `analysis_id` int(10) unsigned NOT NULL,
-  `qstart` int(10) NOT NULL DEFAULT '0',
-  `qend` int(10) NOT NULL DEFAULT '0',
-  `hstart` int(11) NOT NULL DEFAULT '0',
-  `hend` int(11) NOT NULL DEFAULT '0',
-  `score` double(16,4) NOT NULL DEFAULT '0.0000',
-  `evalue` double DEFAULT NULL,
-  `align_length` int(10) DEFAULT NULL,
-  `identical_matches` int(10) DEFAULT NULL,
-  `perc_ident` int(10) DEFAULT NULL,
-  `positive_matches` int(10) DEFAULT NULL,
-  `perc_pos` int(10) DEFAULT NULL,
-  `hit_rank` int(10) DEFAULT NULL,
-  `cigar_line` mediumtext,
-  PRIMARY KEY (`peptide_align_feature_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1 MAX_ROWS=300000000 AVG_ROW_LENGTH=133;
-
-CREATE TABLE `peptide_align_feature_mus_musculus_134` (
-  `peptide_align_feature_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `qmember_id` int(10) unsigned NOT NULL,
-  `hmember_id` int(10) unsigned NOT NULL,
-  `qgenome_db_id` int(10) unsigned NOT NULL,
-  `hgenome_db_id` int(10) unsigned NOT NULL,
-  `qstart` int(10) NOT NULL DEFAULT '0',
-  `qend` int(10) NOT NULL DEFAULT '0',
-  `hstart` int(11) NOT NULL DEFAULT '0',
-  `hend` int(11) NOT NULL DEFAULT '0',
-  `score` double(16,4) NOT NULL DEFAULT '0.0000',
-  `evalue` double DEFAULT NULL,
-  `align_length` int(10) DEFAULT NULL,
-  `identical_matches` int(10) DEFAULT NULL,
-  `perc_ident` int(10) DEFAULT NULL,
-  `positive_matches` int(10) DEFAULT NULL,
-  `perc_pos` int(10) DEFAULT NULL,
-  `hit_rank` int(10) DEFAULT NULL,
-  `cigar_line` mediumtext,
-  PRIMARY KEY (`peptide_align_feature_id`),
-  KEY `hmember_hit` (`hmember_id`,`hit_rank`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1 MAX_ROWS=300000000 AVG_ROW_LENGTH=133;
-
-CREATE TABLE `peptide_align_feature_myotis_lucifugus_118` (
-  `peptide_align_feature_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `qmember_id` int(10) unsigned NOT NULL,
-  `hmember_id` int(10) unsigned NOT NULL,
-  `qgenome_db_id` int(10) unsigned NOT NULL,
-  `hgenome_db_id` int(10) unsigned NOT NULL,
-  `analysis_id` int(10) unsigned NOT NULL,
-  `qstart` int(10) NOT NULL DEFAULT '0',
-  `qend` int(10) NOT NULL DEFAULT '0',
-  `hstart` int(11) NOT NULL DEFAULT '0',
-  `hend` int(11) NOT NULL DEFAULT '0',
-  `score` double(16,4) NOT NULL DEFAULT '0.0000',
-  `evalue` double DEFAULT NULL,
-  `align_length` int(10) DEFAULT NULL,
-  `identical_matches` int(10) DEFAULT NULL,
-  `perc_ident` int(10) DEFAULT NULL,
-  `positive_matches` int(10) DEFAULT NULL,
-  `perc_pos` int(10) DEFAULT NULL,
-  `hit_rank` int(10) DEFAULT NULL,
-  `cigar_line` mediumtext,
-  PRIMARY KEY (`peptide_align_feature_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1 MAX_ROWS=300000000 AVG_ROW_LENGTH=133;
-
-CREATE TABLE `peptide_align_feature_nomascus_leucogenys_115` (
-  `peptide_align_feature_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `qmember_id` int(10) unsigned NOT NULL,
-  `hmember_id` int(10) unsigned NOT NULL,
-  `qgenome_db_id` int(10) unsigned NOT NULL,
-  `hgenome_db_id` int(10) unsigned NOT NULL,
-  `analysis_id` int(10) unsigned NOT NULL,
-  `qstart` int(10) NOT NULL DEFAULT '0',
-  `qend` int(10) NOT NULL DEFAULT '0',
-  `hstart` int(11) NOT NULL DEFAULT '0',
-  `hend` int(11) NOT NULL DEFAULT '0',
-  `score` double(16,4) NOT NULL DEFAULT '0.0000',
-  `evalue` double DEFAULT NULL,
-  `align_length` int(10) DEFAULT NULL,
-  `identical_matches` int(10) DEFAULT NULL,
-  `perc_ident` int(10) DEFAULT NULL,
-  `positive_matches` int(10) DEFAULT NULL,
-  `perc_pos` int(10) DEFAULT NULL,
-  `hit_rank` int(10) DEFAULT NULL,
-  `cigar_line` mediumtext,
-  PRIMARY KEY (`peptide_align_feature_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1 MAX_ROWS=300000000 AVG_ROW_LENGTH=133;
-
-CREATE TABLE `peptide_align_feature_ochotona_princeps_67` (
-  `peptide_align_feature_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `qmember_id` int(10) unsigned NOT NULL,
-  `hmember_id` int(10) unsigned NOT NULL,
-  `qgenome_db_id` int(10) unsigned NOT NULL,
-  `hgenome_db_id` int(10) unsigned NOT NULL,
-  `analysis_id` int(10) unsigned NOT NULL,
-  `qstart` int(10) NOT NULL DEFAULT '0',
-  `qend` int(10) NOT NULL DEFAULT '0',
-  `hstart` int(11) NOT NULL DEFAULT '0',
-  `hend` int(11) NOT NULL DEFAULT '0',
-  `score` double(16,4) NOT NULL DEFAULT '0.0000',
-  `evalue` double DEFAULT NULL,
-  `align_length` int(10) DEFAULT NULL,
-  `identical_matches` int(10) DEFAULT NULL,
-  `perc_ident` int(10) DEFAULT NULL,
-  `positive_matches` int(10) DEFAULT NULL,
-  `perc_pos` int(10) DEFAULT NULL,
-  `hit_rank` int(10) DEFAULT NULL,
-  `cigar_line` mediumtext,
-  PRIMARY KEY (`peptide_align_feature_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1 MAX_ROWS=300000000 AVG_ROW_LENGTH=133;
-
-CREATE TABLE `peptide_align_feature_oreochromis_niloticus_130` (
-  `peptide_align_feature_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `qmember_id` int(10) unsigned NOT NULL,
-  `hmember_id` int(10) unsigned NOT NULL,
-  `qgenome_db_id` int(10) unsigned NOT NULL,
-  `hgenome_db_id` int(10) unsigned NOT NULL,
-  `qstart` int(10) NOT NULL DEFAULT '0',
-  `qend` int(10) NOT NULL DEFAULT '0',
-  `hstart` int(11) NOT NULL DEFAULT '0',
-  `hend` int(11) NOT NULL DEFAULT '0',
-  `score` double(16,4) NOT NULL DEFAULT '0.0000',
-  `evalue` double DEFAULT NULL,
-  `align_length` int(10) DEFAULT NULL,
-  `identical_matches` int(10) DEFAULT NULL,
-  `perc_ident` int(10) DEFAULT NULL,
-  `positive_matches` int(10) DEFAULT NULL,
-  `perc_pos` int(10) DEFAULT NULL,
-  `hit_rank` int(10) DEFAULT NULL,
-  `cigar_line` mediumtext,
-  PRIMARY KEY (`peptide_align_feature_id`),
-  KEY `hmember_hit` (`hmember_id`,`hit_rank`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1 MAX_ROWS=300000000 AVG_ROW_LENGTH=133;
-
-CREATE TABLE `peptide_align_feature_ornithorhynchus_anatinus_43` (
-  `peptide_align_feature_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `qmember_id` int(10) unsigned NOT NULL,
-  `hmember_id` int(10) unsigned NOT NULL,
-  `qgenome_db_id` int(10) unsigned NOT NULL,
-  `hgenome_db_id` int(10) unsigned NOT NULL,
-  `analysis_id` int(10) unsigned NOT NULL,
-  `qstart` int(10) NOT NULL DEFAULT '0',
-  `qend` int(10) NOT NULL DEFAULT '0',
-  `hstart` int(11) NOT NULL DEFAULT '0',
-  `hend` int(11) NOT NULL DEFAULT '0',
-  `score` double(16,4) NOT NULL DEFAULT '0.0000',
-  `evalue` double DEFAULT NULL,
-  `align_length` int(10) DEFAULT NULL,
-  `identical_matches` int(10) DEFAULT NULL,
-  `perc_ident` int(10) DEFAULT NULL,
-  `positive_matches` int(10) DEFAULT NULL,
-  `perc_pos` int(10) DEFAULT NULL,
-  `hit_rank` int(10) DEFAULT NULL,
-  `cigar_line` mediumtext,
-  PRIMARY KEY (`peptide_align_feature_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1 MAX_ROWS=300000000 AVG_ROW_LENGTH=133;
-
-CREATE TABLE `peptide_align_feature_oryctolagus_cuniculus_108` (
-  `peptide_align_feature_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `qmember_id` int(10) unsigned NOT NULL,
-  `hmember_id` int(10) unsigned NOT NULL,
-  `qgenome_db_id` int(10) unsigned NOT NULL,
-  `hgenome_db_id` int(10) unsigned NOT NULL,
-  `analysis_id` int(10) unsigned NOT NULL,
-  `qstart` int(10) NOT NULL DEFAULT '0',
-  `qend` int(10) NOT NULL DEFAULT '0',
-  `hstart` int(11) NOT NULL DEFAULT '0',
-  `hend` int(11) NOT NULL DEFAULT '0',
-  `score` double(16,4) NOT NULL DEFAULT '0.0000',
-  `evalue` double DEFAULT NULL,
-  `align_length` int(10) DEFAULT NULL,
-  `identical_matches` int(10) DEFAULT NULL,
-  `perc_ident` int(10) DEFAULT NULL,
-  `positive_matches` int(10) DEFAULT NULL,
-  `perc_pos` int(10) DEFAULT NULL,
-  `hit_rank` int(10) DEFAULT NULL,
-  `cigar_line` mediumtext,
-  PRIMARY KEY (`peptide_align_feature_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1 MAX_ROWS=300000000 AVG_ROW_LENGTH=133;
-
-CREATE TABLE `peptide_align_feature_oryzias_latipes_37` (
-  `peptide_align_feature_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `qmember_id` int(10) unsigned NOT NULL,
-  `hmember_id` int(10) unsigned NOT NULL,
-  `qgenome_db_id` int(10) unsigned NOT NULL,
-  `hgenome_db_id` int(10) unsigned NOT NULL,
-  `analysis_id` int(10) unsigned NOT NULL,
-  `qstart` int(10) NOT NULL DEFAULT '0',
-  `qend` int(10) NOT NULL DEFAULT '0',
-  `hstart` int(11) NOT NULL DEFAULT '0',
-  `hend` int(11) NOT NULL DEFAULT '0',
-  `score` double(16,4) NOT NULL DEFAULT '0.0000',
-  `evalue` double DEFAULT NULL,
-  `align_length` int(10) DEFAULT NULL,
-  `identical_matches` int(10) DEFAULT NULL,
-  `perc_ident` int(10) DEFAULT NULL,
-  `positive_matches` int(10) DEFAULT NULL,
-  `perc_pos` int(10) DEFAULT NULL,
-  `hit_rank` int(10) DEFAULT NULL,
-  `cigar_line` mediumtext,
-  PRIMARY KEY (`peptide_align_feature_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1 MAX_ROWS=300000000 AVG_ROW_LENGTH=133;
-
-CREATE TABLE `peptide_align_feature_otolemur_garnettii_124` (
-  `peptide_align_feature_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `qmember_id` int(10) unsigned NOT NULL,
-  `hmember_id` int(10) unsigned NOT NULL,
-  `qgenome_db_id` int(10) unsigned NOT NULL,
-  `hgenome_db_id` int(10) unsigned NOT NULL,
-  `analysis_id` int(10) unsigned NOT NULL,
-  `qstart` int(10) NOT NULL DEFAULT '0',
-  `qend` int(10) NOT NULL DEFAULT '0',
-  `hstart` int(11) NOT NULL DEFAULT '0',
-  `hend` int(11) NOT NULL DEFAULT '0',
-  `score` double(16,4) NOT NULL DEFAULT '0.0000',
-  `evalue` double DEFAULT NULL,
-  `align_length` int(10) DEFAULT NULL,
-  `identical_matches` int(10) DEFAULT NULL,
-  `perc_ident` int(10) DEFAULT NULL,
-  `positive_matches` int(10) DEFAULT NULL,
-  `perc_pos` int(10) DEFAULT NULL,
-  `hit_rank` int(10) DEFAULT NULL,
-  `cigar_line` mediumtext,
-  PRIMARY KEY (`peptide_align_feature_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1 MAX_ROWS=300000000 AVG_ROW_LENGTH=133;
-
-CREATE TABLE `peptide_align_feature_pan_troglodytes_125` (
-  `peptide_align_feature_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `qmember_id` int(10) unsigned NOT NULL,
-  `hmember_id` int(10) unsigned NOT NULL,
-  `qgenome_db_id` int(10) unsigned NOT NULL,
-  `hgenome_db_id` int(10) unsigned NOT NULL,
-  `analysis_id` int(10) unsigned NOT NULL,
-  `qstart` int(10) NOT NULL DEFAULT '0',
-  `qend` int(10) NOT NULL DEFAULT '0',
-  `hstart` int(11) NOT NULL DEFAULT '0',
-  `hend` int(11) NOT NULL DEFAULT '0',
-  `score` double(16,4) NOT NULL DEFAULT '0.0000',
-  `evalue` double DEFAULT NULL,
-  `align_length` int(10) DEFAULT NULL,
-  `identical_matches` int(10) DEFAULT NULL,
-  `perc_ident` int(10) DEFAULT NULL,
-  `positive_matches` int(10) DEFAULT NULL,
-  `perc_pos` int(10) DEFAULT NULL,
-  `hit_rank` int(10) DEFAULT NULL,
-  `cigar_line` mediumtext,
-  PRIMARY KEY (`peptide_align_feature_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1 MAX_ROWS=300000000 AVG_ROW_LENGTH=133;
-
-CREATE TABLE `peptide_align_feature_pelodiscus_sinensis_136` (
-  `peptide_align_feature_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `qmember_id` int(10) unsigned NOT NULL,
-  `hmember_id` int(10) unsigned NOT NULL,
-  `qgenome_db_id` int(10) unsigned NOT NULL,
-  `hgenome_db_id` int(10) unsigned NOT NULL,
-  `qstart` int(10) NOT NULL DEFAULT '0',
-  `qend` int(10) NOT NULL DEFAULT '0',
-  `hstart` int(11) NOT NULL DEFAULT '0',
-  `hend` int(11) NOT NULL DEFAULT '0',
-  `score` double(16,4) NOT NULL DEFAULT '0.0000',
-  `evalue` double DEFAULT NULL,
-  `align_length` int(10) DEFAULT NULL,
-  `identical_matches` int(10) DEFAULT NULL,
-  `perc_ident` int(10) DEFAULT NULL,
-  `positive_matches` int(10) DEFAULT NULL,
-  `perc_pos` int(10) DEFAULT NULL,
-  `hit_rank` int(10) DEFAULT NULL,
-  `cigar_line` mediumtext,
-  PRIMARY KEY (`peptide_align_feature_id`),
-  KEY `hmember_hit` (`hmember_id`,`hit_rank`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1 MAX_ROWS=300000000 AVG_ROW_LENGTH=133;
-
-CREATE TABLE `peptide_align_feature_petromyzon_marinus_120` (
-  `peptide_align_feature_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `qmember_id` int(10) unsigned NOT NULL,
-  `hmember_id` int(10) unsigned NOT NULL,
-  `qgenome_db_id` int(10) unsigned NOT NULL,
-  `hgenome_db_id` int(10) unsigned NOT NULL,
-  `analysis_id` int(10) unsigned NOT NULL,
-  `qstart` int(10) NOT NULL DEFAULT '0',
-  `qend` int(10) NOT NULL DEFAULT '0',
-  `hstart` int(11) NOT NULL DEFAULT '0',
-  `hend` int(11) NOT NULL DEFAULT '0',
-  `score` double(16,4) NOT NULL DEFAULT '0.0000',
-  `evalue` double DEFAULT NULL,
-  `align_length` int(10) DEFAULT NULL,
-  `identical_matches` int(10) DEFAULT NULL,
-  `perc_ident` int(10) DEFAULT NULL,
-  `positive_matches` int(10) DEFAULT NULL,
-  `perc_pos` int(10) DEFAULT NULL,
-  `hit_rank` int(10) DEFAULT NULL,
-  `cigar_line` mediumtext,
-  PRIMARY KEY (`peptide_align_feature_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1 MAX_ROWS=300000000 AVG_ROW_LENGTH=133;
-
-CREATE TABLE `peptide_align_feature_pongo_abelii_60` (
-  `peptide_align_feature_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `qmember_id` int(10) unsigned NOT NULL,
-  `hmember_id` int(10) unsigned NOT NULL,
-  `qgenome_db_id` int(10) unsigned NOT NULL,
-  `hgenome_db_id` int(10) unsigned NOT NULL,
-  `analysis_id` int(10) unsigned NOT NULL,
-  `qstart` int(10) NOT NULL DEFAULT '0',
-  `qend` int(10) NOT NULL DEFAULT '0',
-  `hstart` int(11) NOT NULL DEFAULT '0',
-  `hend` int(11) NOT NULL DEFAULT '0',
-  `score` double(16,4) NOT NULL DEFAULT '0.0000',
-  `evalue` double DEFAULT NULL,
-  `align_length` int(10) DEFAULT NULL,
-  `identical_matches` int(10) DEFAULT NULL,
-  `perc_ident` int(10) DEFAULT NULL,
-  `positive_matches` int(10) DEFAULT NULL,
-  `perc_pos` int(10) DEFAULT NULL,
-  `hit_rank` int(10) DEFAULT NULL,
-  `cigar_line` mediumtext,
-  PRIMARY KEY (`peptide_align_feature_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1 MAX_ROWS=300000000 AVG_ROW_LENGTH=133;
-
-CREATE TABLE `peptide_align_feature_procavia_capensis_79` (
-  `peptide_align_feature_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `qmember_id` int(10) unsigned NOT NULL,
-  `hmember_id` int(10) unsigned NOT NULL,
-  `qgenome_db_id` int(10) unsigned NOT NULL,
-  `hgenome_db_id` int(10) unsigned NOT NULL,
-  `analysis_id` int(10) unsigned NOT NULL,
-  `qstart` int(10) NOT NULL DEFAULT '0',
-  `qend` int(10) NOT NULL DEFAULT '0',
-  `hstart` int(11) NOT NULL DEFAULT '0',
-  `hend` int(11) NOT NULL DEFAULT '0',
-  `score` double(16,4) NOT NULL DEFAULT '0.0000',
-  `evalue` double DEFAULT NULL,
-  `align_length` int(10) DEFAULT NULL,
-  `identical_matches` int(10) DEFAULT NULL,
-  `perc_ident` int(10) DEFAULT NULL,
-  `positive_matches` int(10) DEFAULT NULL,
-  `perc_pos` int(10) DEFAULT NULL,
-  `hit_rank` int(10) DEFAULT NULL,
-  `cigar_line` mediumtext,
-  PRIMARY KEY (`peptide_align_feature_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1 MAX_ROWS=300000000 AVG_ROW_LENGTH=133;
-
-CREATE TABLE `peptide_align_feature_pteropus_vampyrus_85` (
-  `peptide_align_feature_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `qmember_id` int(10) unsigned NOT NULL,
-  `hmember_id` int(10) unsigned NOT NULL,
-  `qgenome_db_id` int(10) unsigned NOT NULL,
-  `hgenome_db_id` int(10) unsigned NOT NULL,
-  `analysis_id` int(10) unsigned NOT NULL,
-  `qstart` int(10) NOT NULL DEFAULT '0',
-  `qend` int(10) NOT NULL DEFAULT '0',
-  `hstart` int(11) NOT NULL DEFAULT '0',
-  `hend` int(11) NOT NULL DEFAULT '0',
-  `score` double(16,4) NOT NULL DEFAULT '0.0000',
-  `evalue` double DEFAULT NULL,
-  `align_length` int(10) DEFAULT NULL,
-  `identical_matches` int(10) DEFAULT NULL,
-  `perc_ident` int(10) DEFAULT NULL,
-  `positive_matches` int(10) DEFAULT NULL,
-  `perc_pos` int(10) DEFAULT NULL,
-  `hit_rank` int(10) DEFAULT NULL,
-  `cigar_line` mediumtext,
-  PRIMARY KEY (`peptide_align_feature_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1 MAX_ROWS=300000000 AVG_ROW_LENGTH=133;
-
-CREATE TABLE `peptide_align_feature_rattus_norvegicus_3` (
-  `peptide_align_feature_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `qmember_id` int(10) unsigned NOT NULL,
-  `hmember_id` int(10) unsigned NOT NULL,
-  `qgenome_db_id` int(10) unsigned NOT NULL,
-  `hgenome_db_id` int(10) unsigned NOT NULL,
-  `analysis_id` int(10) unsigned NOT NULL,
-  `qstart` int(10) NOT NULL DEFAULT '0',
-  `qend` int(10) NOT NULL DEFAULT '0',
-  `hstart` int(11) NOT NULL DEFAULT '0',
-  `hend` int(11) NOT NULL DEFAULT '0',
-  `score` double(16,4) NOT NULL DEFAULT '0.0000',
-  `evalue` double DEFAULT NULL,
-  `align_length` int(10) DEFAULT NULL,
-  `identical_matches` int(10) DEFAULT NULL,
-  `perc_ident` int(10) DEFAULT NULL,
-  `positive_matches` int(10) DEFAULT NULL,
-  `perc_pos` int(10) DEFAULT NULL,
-  `hit_rank` int(10) DEFAULT NULL,
-  `cigar_line` mediumtext,
-  PRIMARY KEY (`peptide_align_feature_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1 MAX_ROWS=300000000 AVG_ROW_LENGTH=133;
-
-CREATE TABLE `peptide_align_feature_saccharomyces_cerevisiae_127` (
-  `peptide_align_feature_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `qmember_id` int(10) unsigned NOT NULL,
-  `hmember_id` int(10) unsigned NOT NULL,
-  `qgenome_db_id` int(10) unsigned NOT NULL,
-  `hgenome_db_id` int(10) unsigned NOT NULL,
-  `analysis_id` int(10) unsigned NOT NULL,
-  `qstart` int(10) NOT NULL DEFAULT '0',
-  `qend` int(10) NOT NULL DEFAULT '0',
-  `hstart` int(11) NOT NULL DEFAULT '0',
-  `hend` int(11) NOT NULL DEFAULT '0',
-  `score` double(16,4) NOT NULL DEFAULT '0.0000',
-  `evalue` double DEFAULT NULL,
-  `align_length` int(10) DEFAULT NULL,
-  `identical_matches` int(10) DEFAULT NULL,
-  `perc_ident` int(10) DEFAULT NULL,
-  `positive_matches` int(10) DEFAULT NULL,
-  `perc_pos` int(10) DEFAULT NULL,
-  `hit_rank` int(10) DEFAULT NULL,
-  `cigar_line` mediumtext,
-  PRIMARY KEY (`peptide_align_feature_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1 MAX_ROWS=300000000 AVG_ROW_LENGTH=133;
-
-CREATE TABLE `peptide_align_feature_sarcophilus_harrisii_121` (
-  `peptide_align_feature_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `qmember_id` int(10) unsigned NOT NULL,
-  `hmember_id` int(10) unsigned NOT NULL,
-  `qgenome_db_id` int(10) unsigned NOT NULL,
-  `hgenome_db_id` int(10) unsigned NOT NULL,
-  `analysis_id` int(10) unsigned NOT NULL,
-  `qstart` int(10) NOT NULL DEFAULT '0',
-  `qend` int(10) NOT NULL DEFAULT '0',
-  `hstart` int(11) NOT NULL DEFAULT '0',
-  `hend` int(11) NOT NULL DEFAULT '0',
-  `score` double(16,4) NOT NULL DEFAULT '0.0000',
-  `evalue` double DEFAULT NULL,
-  `align_length` int(10) DEFAULT NULL,
-  `identical_matches` int(10) DEFAULT NULL,
-  `perc_ident` int(10) DEFAULT NULL,
-  `positive_matches` int(10) DEFAULT NULL,
-  `perc_pos` int(10) DEFAULT NULL,
-  `hit_rank` int(10) DEFAULT NULL,
-  `cigar_line` mediumtext,
-  PRIMARY KEY (`peptide_align_feature_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1 MAX_ROWS=300000000 AVG_ROW_LENGTH=133;
-
-CREATE TABLE `peptide_align_feature_sorex_araneus_55` (
-  `peptide_align_feature_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `qmember_id` int(10) unsigned NOT NULL,
-  `hmember_id` int(10) unsigned NOT NULL,
-  `qgenome_db_id` int(10) unsigned NOT NULL,
-  `hgenome_db_id` int(10) unsigned NOT NULL,
-  `analysis_id` int(10) unsigned NOT NULL,
-  `qstart` int(10) NOT NULL DEFAULT '0',
-  `qend` int(10) NOT NULL DEFAULT '0',
-  `hstart` int(11) NOT NULL DEFAULT '0',
-  `hend` int(11) NOT NULL DEFAULT '0',
-  `score` double(16,4) NOT NULL DEFAULT '0.0000',
-  `evalue` double DEFAULT NULL,
-  `align_length` int(10) DEFAULT NULL,
-  `identical_matches` int(10) DEFAULT NULL,
-  `perc_ident` int(10) DEFAULT NULL,
-  `positive_matches` int(10) DEFAULT NULL,
-  `perc_pos` int(10) DEFAULT NULL,
-  `hit_rank` int(10) DEFAULT NULL,
-  `cigar_line` mediumtext,
-  PRIMARY KEY (`peptide_align_feature_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1 MAX_ROWS=300000000 AVG_ROW_LENGTH=133;
-
-CREATE TABLE `peptide_align_feature_sus_scrofa_132` (
-  `peptide_align_feature_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `qmember_id` int(10) unsigned NOT NULL,
-  `hmember_id` int(10) unsigned NOT NULL,
-  `qgenome_db_id` int(10) unsigned NOT NULL,
-  `hgenome_db_id` int(10) unsigned NOT NULL,
-  `qstart` int(10) NOT NULL DEFAULT '0',
-  `qend` int(10) NOT NULL DEFAULT '0',
-  `hstart` int(11) NOT NULL DEFAULT '0',
-  `hend` int(11) NOT NULL DEFAULT '0',
-  `score` double(16,4) NOT NULL DEFAULT '0.0000',
-  `evalue` double DEFAULT NULL,
-  `align_length` int(10) DEFAULT NULL,
-  `identical_matches` int(10) DEFAULT NULL,
-  `perc_ident` int(10) DEFAULT NULL,
-  `positive_matches` int(10) DEFAULT NULL,
-  `perc_pos` int(10) DEFAULT NULL,
-  `hit_rank` int(10) DEFAULT NULL,
-  `cigar_line` mediumtext,
-  PRIMARY KEY (`peptide_align_feature_id`),
-  KEY `hmember_hit` (`hmember_id`,`hit_rank`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1 MAX_ROWS=300000000 AVG_ROW_LENGTH=133;
-
-CREATE TABLE `peptide_align_feature_taeniopygia_guttata_87` (
-  `peptide_align_feature_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `qmember_id` int(10) unsigned NOT NULL,
-  `hmember_id` int(10) unsigned NOT NULL,
-  `qgenome_db_id` int(10) unsigned NOT NULL,
-  `hgenome_db_id` int(10) unsigned NOT NULL,
-  `qstart` int(10) NOT NULL DEFAULT '0',
-  `qend` int(10) NOT NULL DEFAULT '0',
-  `hstart` int(11) NOT NULL DEFAULT '0',
-  `hend` int(11) NOT NULL DEFAULT '0',
-  `score` double(16,4) NOT NULL DEFAULT '0.0000',
-  `evalue` double DEFAULT NULL,
-  `align_length` int(10) DEFAULT NULL,
-  `identical_matches` int(10) DEFAULT NULL,
-  `perc_ident` int(10) DEFAULT NULL,
-  `positive_matches` int(10) DEFAULT NULL,
-  `perc_pos` int(10) DEFAULT NULL,
-  `hit_rank` int(10) DEFAULT NULL,
-  `cigar_line` mediumtext,
-  PRIMARY KEY (`peptide_align_feature_id`),
-  KEY `hmember_hit` (`hmember_id`,`hit_rank`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1 MAX_ROWS=300000000 AVG_ROW_LENGTH=133;
-
-CREATE TABLE `peptide_align_feature_takifugu_rubripes_4` (
-  `peptide_align_feature_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `qmember_id` int(10) unsigned NOT NULL,
-  `hmember_id` int(10) unsigned NOT NULL,
-  `qgenome_db_id` int(10) unsigned NOT NULL,
-  `hgenome_db_id` int(10) unsigned NOT NULL,
-  `analysis_id` int(10) unsigned NOT NULL,
-  `qstart` int(10) NOT NULL DEFAULT '0',
-  `qend` int(10) NOT NULL DEFAULT '0',
-  `hstart` int(11) NOT NULL DEFAULT '0',
-  `hend` int(11) NOT NULL DEFAULT '0',
-  `score` double(16,4) NOT NULL DEFAULT '0.0000',
-  `evalue` double DEFAULT NULL,
-  `align_length` int(10) DEFAULT NULL,
-  `identical_matches` int(10) DEFAULT NULL,
-  `perc_ident` int(10) DEFAULT NULL,
-  `positive_matches` int(10) DEFAULT NULL,
-  `perc_pos` int(10) DEFAULT NULL,
-  `hit_rank` int(10) DEFAULT NULL,
-  `cigar_line` mediumtext,
-  PRIMARY KEY (`peptide_align_feature_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1 MAX_ROWS=300000000 AVG_ROW_LENGTH=133;
-
-CREATE TABLE `peptide_align_feature_tarsius_syrichta_82` (
-  `peptide_align_feature_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `qmember_id` int(10) unsigned NOT NULL,
-  `hmember_id` int(10) unsigned NOT NULL,
-  `qgenome_db_id` int(10) unsigned NOT NULL,
-  `hgenome_db_id` int(10) unsigned NOT NULL,
-  `analysis_id` int(10) unsigned NOT NULL,
-  `qstart` int(10) NOT NULL DEFAULT '0',
-  `qend` int(10) NOT NULL DEFAULT '0',
-  `hstart` int(11) NOT NULL DEFAULT '0',
-  `hend` int(11) NOT NULL DEFAULT '0',
-  `score` double(16,4) NOT NULL DEFAULT '0.0000',
-  `evalue` double DEFAULT NULL,
-  `align_length` int(10) DEFAULT NULL,
-  `identical_matches` int(10) DEFAULT NULL,
-  `perc_ident` int(10) DEFAULT NULL,
-  `positive_matches` int(10) DEFAULT NULL,
-  `perc_pos` int(10) DEFAULT NULL,
-  `hit_rank` int(10) DEFAULT NULL,
-  `cigar_line` mediumtext,
-  PRIMARY KEY (`peptide_align_feature_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1 MAX_ROWS=300000000 AVG_ROW_LENGTH=133;
-
-CREATE TABLE `peptide_align_feature_tetraodon_nigroviridis_65` (
-  `peptide_align_feature_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `qmember_id` int(10) unsigned NOT NULL,
-  `hmember_id` int(10) unsigned NOT NULL,
-  `qgenome_db_id` int(10) unsigned NOT NULL,
-  `hgenome_db_id` int(10) unsigned NOT NULL,
-  `analysis_id` int(10) unsigned NOT NULL,
-  `qstart` int(10) NOT NULL DEFAULT '0',
-  `qend` int(10) NOT NULL DEFAULT '0',
-  `hstart` int(11) NOT NULL DEFAULT '0',
-  `hend` int(11) NOT NULL DEFAULT '0',
-  `score` double(16,4) NOT NULL DEFAULT '0.0000',
-  `evalue` double DEFAULT NULL,
-  `align_length` int(10) DEFAULT NULL,
-  `identical_matches` int(10) DEFAULT NULL,
-  `perc_ident` int(10) DEFAULT NULL,
-  `positive_matches` int(10) DEFAULT NULL,
-  `perc_pos` int(10) DEFAULT NULL,
-  `hit_rank` int(10) DEFAULT NULL,
-  `cigar_line` mediumtext,
-  PRIMARY KEY (`peptide_align_feature_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1 MAX_ROWS=300000000 AVG_ROW_LENGTH=133;
-
-CREATE TABLE `peptide_align_feature_tupaia_belangeri_48` (
-  `peptide_align_feature_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `qmember_id` int(10) unsigned NOT NULL,
-  `hmember_id` int(10) unsigned NOT NULL,
-  `qgenome_db_id` int(10) unsigned NOT NULL,
-  `hgenome_db_id` int(10) unsigned NOT NULL,
-  `analysis_id` int(10) unsigned NOT NULL,
-  `qstart` int(10) NOT NULL DEFAULT '0',
-  `qend` int(10) NOT NULL DEFAULT '0',
-  `hstart` int(11) NOT NULL DEFAULT '0',
-  `hend` int(11) NOT NULL DEFAULT '0',
-  `score` double(16,4) NOT NULL DEFAULT '0.0000',
-  `evalue` double DEFAULT NULL,
-  `align_length` int(10) DEFAULT NULL,
-  `identical_matches` int(10) DEFAULT NULL,
-  `perc_ident` int(10) DEFAULT NULL,
-  `positive_matches` int(10) DEFAULT NULL,
-  `perc_pos` int(10) DEFAULT NULL,
-  `hit_rank` int(10) DEFAULT NULL,
-  `cigar_line` mediumtext,
-  PRIMARY KEY (`peptide_align_feature_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1 MAX_ROWS=300000000 AVG_ROW_LENGTH=133;
-
-CREATE TABLE `peptide_align_feature_tursiops_truncatus_80` (
-  `peptide_align_feature_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `qmember_id` int(10) unsigned NOT NULL,
-  `hmember_id` int(10) unsigned NOT NULL,
-  `qgenome_db_id` int(10) unsigned NOT NULL,
-  `hgenome_db_id` int(10) unsigned NOT NULL,
-  `analysis_id` int(10) unsigned NOT NULL,
-  `qstart` int(10) NOT NULL DEFAULT '0',
-  `qend` int(10) NOT NULL DEFAULT '0',
-  `hstart` int(11) NOT NULL DEFAULT '0',
-  `hend` int(11) NOT NULL DEFAULT '0',
-  `score` double(16,4) NOT NULL DEFAULT '0.0000',
-  `evalue` double DEFAULT NULL,
-  `align_length` int(10) DEFAULT NULL,
-  `identical_matches` int(10) DEFAULT NULL,
-  `perc_ident` int(10) DEFAULT NULL,
-  `positive_matches` int(10) DEFAULT NULL,
-  `perc_pos` int(10) DEFAULT NULL,
-  `hit_rank` int(10) DEFAULT NULL,
-  `cigar_line` mediumtext,
-  PRIMARY KEY (`peptide_align_feature_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1 MAX_ROWS=300000000 AVG_ROW_LENGTH=133;
-
-CREATE TABLE `peptide_align_feature_vicugna_pacos_84` (
-  `peptide_align_feature_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `qmember_id` int(10) unsigned NOT NULL,
-  `hmember_id` int(10) unsigned NOT NULL,
-  `qgenome_db_id` int(10) unsigned NOT NULL,
-  `hgenome_db_id` int(10) unsigned NOT NULL,
-  `analysis_id` int(10) unsigned NOT NULL,
-  `qstart` int(10) NOT NULL DEFAULT '0',
-  `qend` int(10) NOT NULL DEFAULT '0',
-  `hstart` int(11) NOT NULL DEFAULT '0',
-  `hend` int(11) NOT NULL DEFAULT '0',
-  `score` double(16,4) NOT NULL DEFAULT '0.0000',
-  `evalue` double DEFAULT NULL,
-  `align_length` int(10) DEFAULT NULL,
-  `identical_matches` int(10) DEFAULT NULL,
-  `perc_ident` int(10) DEFAULT NULL,
-  `positive_matches` int(10) DEFAULT NULL,
-  `perc_pos` int(10) DEFAULT NULL,
-  `hit_rank` int(10) DEFAULT NULL,
-  `cigar_line` mediumtext,
-  PRIMARY KEY (`peptide_align_feature_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1 MAX_ROWS=300000000 AVG_ROW_LENGTH=133;
-
-CREATE TABLE `peptide_align_feature_xenopus_tropicalis_116` (
-  `peptide_align_feature_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `qmember_id` int(10) unsigned NOT NULL,
-  `hmember_id` int(10) unsigned NOT NULL,
-  `qgenome_db_id` int(10) unsigned NOT NULL,
-  `hgenome_db_id` int(10) unsigned NOT NULL,
-  `analysis_id` int(10) unsigned NOT NULL,
-  `qstart` int(10) NOT NULL DEFAULT '0',
-  `qend` int(10) NOT NULL DEFAULT '0',
-  `hstart` int(11) NOT NULL DEFAULT '0',
-  `hend` int(11) NOT NULL DEFAULT '0',
-  `score` double(16,4) NOT NULL DEFAULT '0.0000',
-  `evalue` double DEFAULT NULL,
-  `align_length` int(10) DEFAULT NULL,
-  `identical_matches` int(10) DEFAULT NULL,
-  `perc_ident` int(10) DEFAULT NULL,
-  `positive_matches` int(10) DEFAULT NULL,
-  `perc_pos` int(10) DEFAULT NULL,
-  `hit_rank` int(10) DEFAULT NULL,
-  `cigar_line` mediumtext,
-  PRIMARY KEY (`peptide_align_feature_id`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1 MAX_ROWS=300000000 AVG_ROW_LENGTH=133;
-
 CREATE TABLE `seq_member` (
   `seq_member_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `stable_id` varchar(128) NOT NULL,
@@ -1951,7 +538,7 @@ CREATE TABLE `seq_member` (
   PRIMARY KEY (`seq_member_id`),
   UNIQUE KEY `stable_id` (`stable_id`),
   KEY `taxon_id` (`taxon_id`),
-  KEY `dnafrag_id` (`dnafrag_id`),
+  KEY `genome_db_id` (`genome_db_id`),
   KEY `source_name` (`source_name`),
   KEY `sequence_id` (`sequence_id`),
   KEY `gene_member_id` (`gene_member_id`),
@@ -1970,9 +557,9 @@ CREATE TABLE `sequence` (
 ) ENGINE=MyISAM DEFAULT CHARSET=latin1 MAX_ROWS=10000000 AVG_ROW_LENGTH=19000;
 
 CREATE TABLE `species_set` (
-  `species_set_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `genome_db_id` int(10) unsigned DEFAULT NULL,
-  UNIQUE KEY `species_set_id` (`species_set_id`,`genome_db_id`),
+  `species_set_id` int(10) unsigned NOT NULL,
+  `genome_db_id` int(10) unsigned NOT NULL,
+  PRIMARY KEY (`species_set_id`,`genome_db_id`),
   KEY `genome_db_id` (`genome_db_id`)
 ) ENGINE=MyISAM AUTO_INCREMENT=35674 DEFAULT CHARSET=latin1;
 
@@ -2004,10 +591,10 @@ CREATE TABLE `species_tree_node` (
   `genome_db_id` int(10) unsigned DEFAULT NULL,
   `node_name` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`node_id`),
-  KEY `parent_id` (`parent_id`),
-  KEY `root_id` (`root_id`,`left_index`),
   KEY `taxon_id` (`taxon_id`),
-  KEY `genome_db_id` (`genome_db_id`)
+  KEY `genome_db_id` (`genome_db_id`),
+  KEY `parent_id` (`parent_id`),
+  KEY `root_id` (`root_id`,`left_index`)
 ) ENGINE=MyISAM AUTO_INCREMENT=501315726 DEFAULT CHARSET=latin1;
 
 CREATE TABLE `species_tree_node_attr` (
@@ -2054,8 +641,7 @@ CREATE TABLE `species_tree_root` (
   `method_link_species_set_id` int(10) unsigned NOT NULL,
   `label` varchar(256) NOT NULL DEFAULT 'default',
   PRIMARY KEY (`root_id`),
-  UNIQUE KEY `method_link_species_set_id_2` (`method_link_species_set_id`,`label`),
-  KEY `method_link_species_set_id` (`method_link_species_set_id`)
+  UNIQUE KEY `method_link_species_set_id` (`method_link_species_set_id`,`label`)
 ) ENGINE=MyISAM DEFAULT CHARSET=latin1;
 
 CREATE TABLE `stable_id_history` (
@@ -2066,21 +652,6 @@ CREATE TABLE `stable_id_history` (
   `version_to` int(10) unsigned DEFAULT NULL,
   `contribution` float DEFAULT NULL,
   PRIMARY KEY (`mapping_session_id`,`stable_id_from`,`stable_id_to`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1;
-
-CREATE TABLE `subset` (
-  `subset_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `description` varchar(255) DEFAULT NULL,
-  `dump_loc` varchar(255) DEFAULT NULL,
-  PRIMARY KEY (`subset_id`),
-  UNIQUE KEY `description` (`description`)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1;
-
-CREATE TABLE `subset_member` (
-  `subset_id` int(10) unsigned NOT NULL,
-  `member_id` int(10) unsigned NOT NULL,
-  PRIMARY KEY (`subset_id`,`member_id`),
-  KEY `member_id` (`member_id`)
 ) ENGINE=MyISAM DEFAULT CHARSET=latin1;
 
 CREATE TABLE `synteny_region` (

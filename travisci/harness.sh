@@ -14,38 +14,38 @@ export PERL5LIB=$PERL5LIB:$PWD/ensembl-hive/modules
 export PERL5LIB=$PERL5LIB:$PWD/ensembl-test/modules
 export PERL5LIB=$PERL5LIB:$PWD/ensembl-funcgen/modules
 export PERL5LIB=$PERL5LIB:$PWD/ensembl-variation/modules
+export PERL5LIB=$PERL5LIB:$PWD/ensembl-vep/modules
 export PERL5LIB=$PERL5LIB:$PWD/Bio-HTS/lib:$PWD/Bio-HTS/blib/arch/auto/Bio/DB/HTS/Faidx:$PWD/Bio-HTS/blib/arch/auto/Bio/DB/HTS
 
-ENSEMBL_PERL5OPT='-MDevel::Cover=+ignore,bioperl,+ignore,ensembl,+ignore,ensembl-test,+ignore,ensembl-variation,+ignore,ensembl-io,+ignore,ensembl-funcgen'
+ENSEMBL_PERL5OPT='-MDevel::Cover=+ignore,bioperl,+ignore,ensembl,+ignore,ensembl-test,+ignore,ensembl-variation,+ignore,ensembl-io,+ignore,ensembl-funcgen,+ignore,ensembl-vep'
 ENSEMBL_TESTER="$PWD/ensembl-test/scripts/runtests.pl"
 COMPARA_SCRIPTS=("$PWD/modules/t")
 CORE_SCRIPTS=("$PWD/ensembl/modules/t/compara.t")
 REST_SCRIPTS=("$PWD/ensembl-rest/t/genomic_alignment.t" "$PWD/ensembl-rest/t/info.t" "$PWD/ensembl-rest/t/taxonomy.t" "$PWD/ensembl-rest/t/homology.t" "$PWD/ensembl-rest/t/gene_tree.t")
 
-echo "Running ensembl-compara test suite using $PERL5LIB"
 if [ "$COVERALLS" = 'true' ]; then
-  PERL5OPT="$ENSEMBL_PERL5OPT" perl $ENSEMBL_TESTER -verbose "${COMPARA_SCRIPTS[@]}"
-  PERL5OPT="$ENSEMBL_PERL5OPT" perl $ENSEMBL_TESTER -verbose "${CORE_SCRIPTS[@]}"
+  EFFECTIVE_PERL5OPT="$ENSEMBL_PERL5OPT"
+  ENSEMBL_TESTER="$ENSEMBL_TESTER -verbose"
 else
-  perl $ENSEMBL_TESTER "${COMPARA_SCRIPTS[@]}"
-  perl $ENSEMBL_TESTER "${CORE_SCRIPTS[@]}"
+  EFFECTIVE_PERL5OPT=""
 fi
 
+echo "Running ensembl-compara test suite using $PERL5LIB"
+PERL5OPT="$EFFECTIVE_PERL5OPT" perl $ENSEMBL_TESTER "${COMPARA_SCRIPTS[@]}"
 rt1=$?
+PERL5OPT="$EFFECTIVE_PERL5OPT" perl $ENSEMBL_TESTER "${CORE_SCRIPTS[@]}"
+rt2=$?
 
 if [[ "$TRAVIS_PERL_VERSION" < "5.14" ]]; then
   echo "Skipping ensembl-rest test suite"
+  rt3=0
 else
   echo "Running ensembl-rest test suite using $PERL5LIB"
-  if [ "$COVERALLS" = 'true' ]; then
-    PERL5OPT="$ENSEMBL_PERL5OPT" perl $ENSEMBL_TESTER -verbose "${REST_SCRIPTS[@]}"
-  else
-    perl $ENSEMBL_TESTER "${REST_SCRIPTS[@]}"
-  fi
+  PERL5OPT="$EFFECTIVE_PERL5OPT" perl $ENSEMBL_TESTER "${REST_SCRIPTS[@]}"
+  rt3=$?
 fi
 
-rt=$?
-if [[ ($rt1 -eq 0) && ($rt -eq 0) ]]; then
+if [[ ($rt1 -eq 0) && ($rt2 -eq 0) && ($rt3 -eq 0) ]]; then
   if [ "$COVERALLS" = 'true' ]; then
     echo "Running Devel::Cover coveralls report"
     cover --nosummary -report coveralls

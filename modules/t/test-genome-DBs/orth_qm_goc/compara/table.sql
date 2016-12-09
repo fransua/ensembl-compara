@@ -155,6 +155,18 @@ CREATE TABLE `gene_member_hom_stats` (
   PRIMARY KEY (`gene_member_id`,`collection`)
 ) ENGINE=MyISAM DEFAULT CHARSET=latin1;
 
+CREATE TABLE `gene_member_qc` (
+  `gene_member_stable_id` varchar(128) NOT NULL,
+  `genome_db_id` int(10) unsigned NOT NULL,
+  `seq_member_id` int(10) DEFAULT NULL,
+  `n_species` int(11) DEFAULT NULL,
+  `n_orth` int(11) DEFAULT NULL,
+  `avg_cov` float DEFAULT NULL,
+  `status` varchar(50) NOT NULL,
+  KEY `genome_db_id` (`genome_db_id`),
+  KEY `gene_member_stable_id` (`gene_member_stable_id`)
+) ENGINE=MyISAM DEFAULT CHARSET=latin1;
+
 CREATE TABLE `gene_tree_node` (
   `node_id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `parent_id` int(10) unsigned DEFAULT NULL,
@@ -219,19 +231,19 @@ CREATE TABLE `gene_tree_root_attr` (
   `aln_after_filter_length` int(10) unsigned DEFAULT NULL,
   `aln_length` int(10) unsigned DEFAULT NULL,
   `aln_num_residues` int(10) unsigned DEFAULT NULL,
-  `aln_percent_identity` float(5,5) DEFAULT NULL,
+  `aln_percent_identity` float DEFAULT NULL,
   `best_fit_model_family` varchar(10) DEFAULT NULL,
   `best_fit_model_parameter` varchar(5) DEFAULT NULL,
   `gene_count` int(10) unsigned DEFAULT NULL,
-  `k_score` float(5,5) DEFAULT NULL,
+  `k_score` float DEFAULT NULL,
   `k_score_rank` int(10) unsigned DEFAULT NULL,
   `mcoffee_scores_gene_align_id` int(10) unsigned DEFAULT NULL,
   `aln_n_removed_columns` int(10) unsigned DEFAULT NULL,
   `aln_num_of_patterns` int(10) unsigned DEFAULT NULL,
-  `aln_shrinking_factor` float(2,2) DEFAULT NULL,
+  `aln_shrinking_factor` float DEFAULT NULL,
   `spec_count` int(10) unsigned DEFAULT NULL,
   `tree_max_branch` float DEFAULT NULL,
-  `tree_max_length` float(5,5) DEFAULT NULL,
+  `tree_max_length` float DEFAULT NULL,
   `tree_num_dup_nodes` int(10) unsigned DEFAULT NULL,
   `tree_num_leaves` int(10) unsigned DEFAULT NULL,
   `tree_num_spec_nodes` int(10) unsigned DEFAULT NULL,
@@ -248,7 +260,8 @@ CREATE TABLE `gene_tree_root_tag` (
   `tag` varchar(50) NOT NULL,
   `value` mediumtext NOT NULL,
   KEY `root_id_tag` (`root_id`,`tag`),
-  KEY `root_id` (`root_id`)
+  KEY `root_id` (`root_id`),
+  KEY `tag` (`tag`)
 ) ENGINE=MyISAM DEFAULT CHARSET=latin1;
 
 CREATE TABLE `genome_db` (
@@ -404,7 +417,7 @@ CREATE TABLE `meta` (
   PRIMARY KEY (`meta_id`),
   UNIQUE KEY `species_key_value_idx` (`species_id`,`meta_key`,`meta_value`(255)),
   KEY `species_value_idx` (`species_id`,`meta_value`(255))
-) ENGINE=MyISAM AUTO_INCREMENT=27 DEFAULT CHARSET=latin1;
+) ENGINE=MyISAM AUTO_INCREMENT=31 DEFAULT CHARSET=latin1;
 
 CREATE TABLE `method_link` (
   `method_link_id` int(10) unsigned NOT NULL AUTO_INCREMENT,

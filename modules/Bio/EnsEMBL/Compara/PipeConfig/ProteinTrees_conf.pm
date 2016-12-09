@@ -152,6 +152,7 @@ sub default_options {
     # tree building parameters:
         'use_raxml'                 => 0,
         'use_notung'                => 0,
+        'do_model_selection'        => 0,
         'use_quick_tree_break'      => 1,
 
         'treebreak_gene_count'      => 400,
@@ -169,6 +170,11 @@ sub default_options {
         'treebest_threshold_n_residues' => 10000,
         'treebest_threshold_n_genes'    => 400,
         'update_threshold_trees'    => 0.2,
+
+    # sequence type used on the phylogenetic inferences
+    # It has to be set to 1 for the strains
+        'use_dna_for_phylogeny'     => 0,
+        #'use_dna_for_phylogeny'     => 1,
 
     # alignment filtering options
         'threshold_n_genes'       => 20,
@@ -1354,9 +1360,6 @@ sub core_pipeline_analyses {
                 'update_threshold_trees' => $self->o('update_threshold_trees'),
 			},
             -rc_name => '16Gb_job',
-            -flow_into => {
-                1 => [ '?table_name=seq_member_id_current_reused_map' ],
-            },
         },
 
 
@@ -2270,6 +2273,9 @@ sub core_pipeline_analyses {
         {   -logic_name => 'raxml_parsimony_decision',
             -module     => 'Bio::EnsEMBL::Compara::RunnableDB::GeneTrees::LoadTags',
             -parameters => {
+                'raxml_patterns_per_core'  => $self->o('use_dna_for_phylogeny') ? '500' : '150',
+                'raxml_cores'  => '#expr(#tree_aln_num_of_patterns# / #raxml_patterns_per_core# )expr#',
+
                 'tags'  => {
                     #The default value matches the default dataflow we want: _8_cores analysis.
                     'aln_num_of_patterns' => 200,
@@ -2292,19 +2298,19 @@ sub core_pipeline_analyses {
 
             -flow_into  => {
                 '1->A' => WHEN (
-                    '(#tree_aln_num_of_patterns# <= 150) && (#tree_gene_count# <= 500)'                                        => 'raxml_parsimony',
-                    '(#tree_aln_num_of_patterns# <= 150) && (#tree_gene_count# > 500)'                                         => 'raxml_parsimony',
-                    '(#tree_aln_num_of_patterns# > 150) && (#tree_aln_num_of_patterns# <= 1200) && (#tree_gene_count# <= 500)'     => 'raxml_parsimony_8_cores',
-                    '(#tree_aln_num_of_patterns# > 150) && (#tree_aln_num_of_patterns# <= 1200) && (#tree_gene_count# > 500)'      => 'raxml_parsimony_8_cores',
-                    '(#tree_aln_num_of_patterns# > 1200) && (#tree_aln_num_of_patterns# <= 2400) && (#tree_gene_count# <= 500)'    => 'raxml_parsimony_8_cores',
-                    '(#tree_aln_num_of_patterns# > 1200) && (#tree_aln_num_of_patterns# <= 2400) && (#tree_gene_count# > 500)'     => 'raxml_parsimony_16_cores',
-                    '(#tree_aln_num_of_patterns# > 2400) && (#tree_aln_num_of_patterns# <= 8000) && (#tree_gene_count# <= 500)'    => 'raxml_parsimony_16_cores',
-                    '(#tree_aln_num_of_patterns# > 2400) && (#tree_aln_num_of_patterns# <= 8000) && (#tree_gene_count# > 500)'     => 'raxml_parsimony_16_cores',
-                    '(#tree_aln_num_of_patterns# > 8000) && (#tree_aln_num_of_patterns# <= 16000) && (#tree_gene_count# <= 500)'   => 'raxml_parsimony_32_cores',
-                    '(#tree_aln_num_of_patterns# > 8000) && (#tree_aln_num_of_patterns# <= 16000) && (#tree_gene_count# > 500)'    => 'raxml_parsimony_32_cores',
-                    '(#tree_aln_num_of_patterns# > 16000) && (#tree_aln_num_of_patterns# <= 32000) && (#tree_gene_count# <= 500)'  => 'raxml_parsimony_32_cores',
-                    '(#tree_aln_num_of_patterns# > 16000) && (#tree_aln_num_of_patterns# <= 32000) && (#tree_gene_count# > 500)'   => 'raxml_parsimony_64_cores',
-                    '(#tree_aln_num_of_patterns# > 32000)'                                                                     => 'raxml_parsimony_64_cores',
+                    '( #raxml_cores# <= 1 ) && (#tree_gene_count# <= 500)'                          => 'raxml_parsimony',
+                    '( #raxml_cores# <= 1 ) && (#tree_gene_count# > 500)'                           => 'raxml_parsimony',
+
+                    '( #raxml_cores# > 1 ) && ( #raxml_cores# <= 8 ) && (#tree_gene_count# <= 500)' => 'raxml_parsimony_8_cores',
+                    '( #raxml_cores# > 1 ) && (  #raxml_cores# <= 8 ) && (#tree_gene_count# > 500)' => 'raxml_parsimony_8_cores',
+
+                    '( #raxml_cores# > 8) && (#raxml_cores# <= 16 ) && (#tree_gene_count# <= 500)'  => 'raxml_parsimony_8_cores',
+                    '( #raxml_cores# > 8) && (#raxml_cores# <= 16 ) && (#tree_gene_count# > 500)'   => 'raxml_parsimony_16_cores',
+
+                    '( #raxml_cores# > 16) && (#raxml_cores# <= 32 ) && (#tree_gene_count# <= 500)' => 'raxml_parsimony_16_cores',
+                    '( #raxml_cores# > 16) && (#raxml_cores# <= 32 ) && (#tree_gene_count# > 500)'  => 'raxml_parsimony_32_cores',
+
+                    '( #raxml_cores# > 32) ' => 'raxml_parsimony_64_cores',
                 ),
                 'A->1' => 'raxml_decision',
             },
@@ -2451,6 +2457,12 @@ sub core_pipeline_analyses {
         {   -logic_name => 'raxml_decision',
             -module     => 'Bio::EnsEMBL::Compara::RunnableDB::GeneTrees::LoadTags',
             -parameters => {
+                'examl_patterns_per_core'  => $self->o('use_dna_for_phylogeny') ? '3500' : '1000',
+                'raxml_patterns_per_core'  => $self->o('use_dna_for_phylogeny') ? '500' : '150',
+
+                'examl_cores'  => '#expr(#tree_aln_num_of_patterns# / #examl_patterns_per_core# )expr#',
+                'raxml_cores'  => '#expr(#tree_aln_num_of_patterns# / #raxml_patterns_per_core# )expr#',
+
                 'tags'  => {
                     #The default value matches the default dataflow we want: _8_cores analysis.
                     'aln_num_of_patterns' => 200,
@@ -2473,19 +2485,25 @@ sub core_pipeline_analyses {
 
             -flow_into  => {
                 1 => WHEN (
-                    '(#tree_aln_num_of_patterns# <= 150) && (#tree_gene_count# <= 500)'                                        => 'raxml',
-                    '(#tree_aln_num_of_patterns# <= 150) && (#tree_gene_count# > 500)'                                         => 'raxml_8_cores',
-                    '(#tree_aln_num_of_patterns# > 150) && (#tree_aln_num_of_patterns# <= 1200) && (#tree_gene_count# <= 500)'     => 'raxml_8_cores',
-                    '(#tree_aln_num_of_patterns# > 150) && (#tree_aln_num_of_patterns# <= 1200) && (#tree_gene_count# > 500)'      => 'raxml_16_cores',
-                    '(#tree_aln_num_of_patterns# > 1200) && (#tree_aln_num_of_patterns# <= 2400) && (#tree_gene_count# <= 500)'    => 'raxml_16_cores',
-                    '(#tree_aln_num_of_patterns# > 1200) && (#tree_aln_num_of_patterns# <= 2400) && (#tree_gene_count# > 500)'     => 'examl_8_cores',
-                    '(#tree_aln_num_of_patterns# > 2400) && (#tree_aln_num_of_patterns# <= 8000) && (#tree_gene_count# <= 500)'    => 'examl_8_cores',
-                    '(#tree_aln_num_of_patterns# > 2400) && (#tree_aln_num_of_patterns# <= 8000) && (#tree_gene_count# > 500)'     => 'examl_16_cores',
-                    '(#tree_aln_num_of_patterns# > 8000) && (#tree_aln_num_of_patterns# <= 16000) && (#tree_gene_count# <= 500)'   => 'examl_16_cores',
-                    '(#tree_aln_num_of_patterns# > 8000) && (#tree_aln_num_of_patterns# <= 16000) && (#tree_gene_count# > 500)'    => 'examl_32_cores',
-                    '(#tree_aln_num_of_patterns# > 16000) && (#tree_aln_num_of_patterns# <= 32000) && (#tree_gene_count# <= 500)'  => 'examl_32_cores',
-                    '(#tree_aln_num_of_patterns# > 16000) && (#tree_aln_num_of_patterns# <= 32000) && (#tree_gene_count# > 500)'   => 'examl_64_cores',
-                    '(#tree_aln_num_of_patterns# > 32000)'                                                                     => 'examl_64_cores',
+                    '( #raxml_cores# <= 1 ) && (#tree_gene_count# <= 500)'                                                      => 'raxml',
+                    '( #raxml_cores# <= 1 ) && (#tree_gene_count# > 500)'                                                       => 'raxml_8_cores',
+
+                    '( #raxml_cores# > 1 ) && ( #raxml_cores# <= 8 ) && (#tree_gene_count# <= 500)'                             => 'raxml_8_cores',
+                    '( #raxml_cores# > 1 ) && (  #raxml_cores# <= 8 ) && (#tree_gene_count# > 500)'                             => 'raxml_16_cores',
+
+                    '( #raxml_cores# > 8) && (#raxml_cores# <= 16 ) && (#tree_gene_count# <= 500)'                              => 'raxml_16_cores',
+                    '( #raxml_cores# > 8) && (#raxml_cores# <= 16 ) && (#tree_gene_count# > 500)'                               => 'examl_8_cores',
+
+                    '( #raxml_cores# > 16) && (#examl_cores# <= 8 ) && (#tree_gene_count# <= 500)'                              => 'examl_8_cores',
+                    '( #raxml_cores# > 16) && (#examl_cores# <= 8 ) && (#tree_gene_count# > 500)'                               => 'examl_16_cores',
+
+                    '( #raxml_cores# > 16) && ( #examl_cores# > 8 ) && (#examl_cores# <= 16 ) && (#tree_gene_count# <= 500)'    => 'examl_16_cores',
+                    '( #raxml_cores# > 16) && ( #examl_cores# > 8 ) && (#examl_cores# <= 16 ) && (#tree_gene_count# > 500)'     => 'examl_32_cores',
+
+                    '( #raxml_cores# > 16) && ( #examl_cores# > 16 ) && (#examl_cores# <= 32 ) && (#tree_gene_count# <= 500)'   => 'examl_32_cores',
+                    '( #raxml_cores# > 16) && ( #examl_cores# > 16 ) && (#examl_cores# <= 32 ) && (#tree_gene_count# > 500)'    => 'examl_64_cores',
+
+                    '( #examl_cores# > 32 )'    => 'examl_64_cores',
                 ),
             },
         },
@@ -3287,7 +3305,6 @@ sub core_pipeline_analyses {
         {   -logic_name => 'homology_id_mapping',
             -module     => 'Bio::EnsEMBL::Compara::RunnableDB::ProteinTrees::HomologyIDMapping',
             -flow_into  => {
-                 1 => [ '?table_name=homology_id_mapping' ],
                 -1 => [ 'homology_id_mapping_himem' ],
             },
             -analysis_capacity => 100,
@@ -3295,9 +3312,6 @@ sub core_pipeline_analyses {
 
         {   -logic_name => 'homology_id_mapping_himem',
             -module     => 'Bio::EnsEMBL::Compara::RunnableDB::ProteinTrees::HomologyIDMapping',
-            -flow_into  => {
-                1 => [ '?table_name=homology_id_mapping' ],
-            },
             -analysis_capacity => 20,
             -rc_name => '1Gb_job',
         },

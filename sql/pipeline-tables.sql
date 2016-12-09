@@ -271,10 +271,10 @@ CREATE TABLE IF NOT EXISTS panther_annot (
 -- overview: This table contains the full breakdown of what is used to calculate the goc score.
 
 CREATE TABLE IF NOT EXISTS ortholog_goc_metric ( 
-  method_link_species_set_id INT NOT NULL,
-  homology_id INT NOT NULL,
-  gene_member_id INT NOT NULL,
-  dnafrag_id INT NOT NULL,
+  method_link_species_set_id int(10) unsigned NOT NULL,
+  homology_id int(10) unsigned NOT NULL,
+  gene_member_id int(10) unsigned NOT NULL,
+  dnafrag_id bigint(20) unsigned NOT NULL,
   goc_score INT NOT NULL, 
   left1 INT,
   left2 INT,
@@ -328,6 +328,7 @@ CREATE TABLE homology_id_mapping (
 	prev_release_homology_id  INT UNSIGNED,
 	mlss_id                   INT UNSIGNED NOT NULL,
 	PRIMARY KEY (curr_release_homology_id),
+	UNIQUE KEY (prev_release_homology_id),
 	FOREIGN KEY (mlss_id) REFERENCES method_link_species_set(method_link_species_set_id),
 	INDEX (mlss_id)
 ) ENGINE=InnoDB;
@@ -388,31 +389,3 @@ CREATE TABLE QC_split_genes (
   seq_member_id int(10) NOT NULL
 
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
-
--- ----------------------------------------------------------------------------------
---
--- Table structure for table 'gene_member_qc'
---
--- overview: Add a new table to hold information about the quality of gene members 
--- semantics:
---  gene_member_stable_id
---  seq_member_id
---  n_species
---  n_orth
---  avg_cov
---  status
-
-CREATE TABLE `gene_member_qc` (
-  gene_member_stable_id varchar(128) NOT NULL,
-  genome_db_id int(10) unsigned NOT NULL,
-  seq_member_id int(10) DEFAULT NULL,
-  n_species int(11) DEFAULT NULL,
-  n_orth int(11) DEFAULT NULL,
-  avg_cov float DEFAULT NULL,
-  status varchar(50) NOT NULL,
-  KEY genome_db_id (genome_db_id),
-  KEY gene_member_stable_id (gene_member_stable_id),
-  CONSTRAINT gene_member_qc_ibfk_1 FOREIGN KEY (genome_db_id) REFERENCES genome_db (genome_db_id)
-) ENGINE=InnoDB DEFAULT CHARSET=latin1 
-
-

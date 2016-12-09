@@ -50,6 +50,9 @@ copying homology_member too when asked to copy homology_member.
   copy_data_with_foreign_keys_by_constraint($source_dbc, $target_dbc, 'family', 'stable_id', 'ENSFM00730001521062', undef, 1);
   copy_data_with_foreign_keys_by_constraint($source_dbc, $target_dbc, 'gene_tree_root', 'stable_id', 'ENSGT00390000003602', undef, 1);
 
+  # To insert a large number of rows in an optimal manner
+  bulk_insert($self->compara_dba->dbc, 'homology_id_mapping', $self->param('homology_mapping'), ['mlss_id', 'prev_release_homology_id', 'curr_release_homology_id'], 'INSERT IGNORE');
+
 =head1 AUTHORSHIP
 
 Ensembl Team. Individual contributions can be found in the GIT log.
@@ -72,16 +75,22 @@ our @EXPORT_OK;
     copy_data
     copy_data_in_binary_mode
     copy_data_in_text_mode
+    copy_table
     copy_table_in_binary_mode
+    copy_table_in_text_mode
+    bulk_insert
 );
 %EXPORT_TAGS = (
   'row_copy'    => [qw(copy_data_with_foreign_keys_by_constraint clear_copy_data_cache)],
-  'table_copy'  => [qw(copy_data copy_data_in_binary_mode copy_data_in_text_mode copy_table_in_binary_mode)],
+  'table_copy'  => [qw(copy_data copy_table)],
+  'insert'      => [qw(bulk_insert)],
   'all'         => [@EXPORT_OK]
 );
 
+use constant MAX_ROWS_FOR_MYSQLIMPORT => 1_000_000;
 
 use Data::Dumper;
+use File::Temp qw/tempfile/;
 
 use Bio::EnsEMBL::Utils::Scalar qw(check_ref assert_ref);
 
@@ -133,7 +142,7 @@ sub copy_data_with_foreign_keys_by_constraint {
     assert_ref($from_dbc, 'Bio::EnsEMBL::DBSQL::DBConnection', 'from_dbc');
     assert_ref($to_dbc, 'Bio::EnsEMBL::DBSQL::DBConnection', 'to_dbc');
     die "A table name must be given" unless $table_name;
-    my $fk_rules = _load_foreign_keys($from_dbc, $to_dbc, $foreign_keys_dbc);
+    my $fk_rules = _load_foreign_keys($foreign_keys_dbc, $to_dbc, $from_dbc);
     _memoized_insert($from_dbc, $to_dbc, $table_name, $where_field, $where_value, $fk_rules, $expand_tables);
 }
 
@@ -238,6 +247,37 @@ sub clear_copy_data_cache {
 }
 
 
+=head2 _has_binary_column
+
+  Example     : _has_binary_column($dbc, 'genomic_align_block');
+  Description : Tells whether the table has a binary column
+  Returntype  : Boolean
+  Exceptions  : none
+  Caller      : general
+  Status      : Stable
+
+=cut
+
+sub _has_binary_column {
+    my ($dbc, $table_name) = @_;
+
+    assert_ref($dbc, 'Bio::EnsEMBL::DBSQL::DBConnection', 'dbc');
+    return $dbc->{"_has_binary_column__${table_name}"} if exists $dbc->{"_has_binary_column__${table_name}"};
+
+    my $sth = $dbc->db_handle->column_info($dbc->dbname, undef, $table_name, '%');
+    $sth->execute;
+    my $all_rows = $sth->fetchall_arrayref;
+    my $binary_mode = 0;
+    foreach my $this_col (@$all_rows) {
+        if (($this_col->[5] =~ /BINARY$/) or ($this_col->[5] =~ /BLOB$/) or ($this_col->[5] eq "BIT")) {
+            $binary_mode = 1;
+            last;
+        }
+    }
+    $dbc->{"_has_binary_column__${table_name}"} = $binary_mode;
+    return $binary_mode;
+}
+
 
 =head2 copy_data
 
@@ -268,17 +308,6 @@ sub copy_data {
 
     print "Copying data in table $table_name\n";
 
-    my $sth = $from_dbc->db_handle->column_info($from_dbc->dbname, undef, $table_name, '%');
-    $sth->execute;
-    my $all_rows = $sth->fetchall_arrayref;
-    my $binary_mode = 0;
-    foreach my $this_col (@$all_rows) {
-        if (($this_col->[5] eq "BINARY") or ($this_col->[5] eq "VARBINARY") or
-            ($this_col->[5] eq "BLOB") or ($this_col->[5] eq "BIT")) {
-            $binary_mode = 1;
-            last;
-        }
-    }
     die "Keys must be disabled in order to be reenabled\n" if $reenable_keys and not $disable_keys;
 
     #When merging the patches, there are so few items to be added, we have no need to disable the keys
@@ -287,7 +316,7 @@ sub copy_data {
         #but takes far too long to ENABLE again
         $to_dbc->do("ALTER TABLE `$table_name` DISABLE KEYS");
     }
-    if ($binary_mode) {
+    if (_has_binary_column($from_dbc, $table_name)) {
         copy_data_in_binary_mode($from_dbc, $to_dbc, $table_name, $query, $index_name, $min_id, $max_id, $step);
     } else {
         copy_data_in_text_mode($from_dbc, $to_dbc, $table_name, $query, $index_name, $min_id, $max_id, $step, $holes_possible, $replace);
@@ -333,7 +362,7 @@ sub copy_data_in_text_mode {
     my $dbname = $to_dbc->dbname;
 
     #Default step size.
-    $step ||= 100000;
+    $step ||= MAX_ROWS_FOR_MYSQLIMPORT;
 
     my ($use_limit, $start);
     if (defined $index_name && defined $min_id && defined $max_id) {
@@ -373,9 +402,8 @@ sub copy_data_in_text_mode {
             return $total_rows;
         }
 
-        my $time = time(); 
-        my $filename = "/tmp/$table_name.copy_data.$$.$time.txt";
-        open(my $fh, '>', $filename) or die "could not open the file '$filename' for writing";
+        #my $time = time();
+        my ($fh, $filename) = tempfile();
         print $fh join("\t", map {_escape($_)} @$first_row), "\n";
         my $nrows = 1;
         while(my $this_row = $sth->fetchrow_arrayref) {
@@ -394,6 +422,7 @@ sub copy_data_in_text_mode {
     }
     return $total_rows;
 }
+
 
 =head2 copy_data_in_binary_mode
 
@@ -491,6 +520,60 @@ sub copy_data_in_binary_mode {
     }
 }
 
+
+=head2 copy_table
+
+  Arg[1]      : Bio::EnsEMBL::DBSQL::DBConnection $from_dbc
+  Arg[2]      : Bio::EnsEMBL::DBSQL::DBConnection $to_dbc
+  Arg[3]      : string $table_name
+  Arg[4]      : (opt) string $where_filter
+  Arg[5]      : (opt) boolean $replace (default: false)
+
+  Description : Copy the table (either all of it or a subset).
+                The main optional argument is $where_filter, which allows to select a portion of
+                the table. Note: the filter must be valid on the table alone, and does not support
+                JOINs. If you need the latter, use copy_data()
+
+=cut
+
+sub copy_table {
+    my ($from_dbc, $to_dbc, $table_name, $where_filter, $replace, $skip_disable_keys) = @_;
+
+    assert_ref($from_dbc, 'Bio::EnsEMBL::DBSQL::DBConnection', 'from_dbc');
+    assert_ref($to_dbc, 'Bio::EnsEMBL::DBSQL::DBConnection', 'to_dbc');
+
+    print "Copying data in table $table_name\n";
+
+    if (_has_binary_column($from_dbc, $table_name)) {
+        return copy_table_in_binary_mode($from_dbc, $to_dbc, $table_name, $where_filter, $replace, $skip_disable_keys);
+    } else {
+        return copy_table_in_text_mode($from_dbc, $to_dbc, $table_name, $where_filter, $replace);
+    }
+}
+
+
+=head2 copy_table_in_text_mode
+
+  Description : A specialized version of copy_table() for tables that don't have
+                any binary data and can be loaded with mysqlimport.
+
+=cut
+
+sub copy_table_in_text_mode {
+    my ($from_dbc, $to_dbc, $table_name, $where_filter, $replace) = @_;
+
+    my $query = 'SELECT * FROM '.$table_name.($where_filter ? ' '.$where_filter : '');
+    return copy_data_in_text_mode($from_dbc, $to_dbc, $table_name, $query, undef, undef, undef, undef, undef, $replace);
+}
+
+
+=head2 copy_table_in_binary_mode
+
+  Description : A specialized version of copy_table() for tables that have binary
+                data, using mysqldump.
+
+=cut
+
 sub copy_table_in_binary_mode {
     my ($from_dbc, $to_dbc, $table_name, $where_filter, $replace, $skip_disable_keys) = @_;
 
@@ -519,6 +602,45 @@ sub copy_table_in_binary_mode {
 
     #print "time " . ($start-$min_id) . " " . (time - $start_time) . "\n";
 }
+
+
+=head2 bulk_insert
+
+  Arg[1]      : Bio::EnsEMBL::DBSQL::DBConnection $dest_dbc
+  Arg[2]      : string $table_name
+  Arg[3]      : arrayref of arrayrefs $data
+  Arg[4]      : (opt) arrayref of strings $col_names (defaults to the column-order at the database level)
+  Arg[5]      : (opt) string $insertion_mode (default: 'INSERT')
+
+  Description : Execute extended INSERT statements (or whatever flavour selected in $insertion_mode)
+                on $dest_dbc to push the data kept in the arrayref $data.  Each arrayref in $data
+                corresponds to a row, in the same order as in $col_names (if provided) or the columns
+                in the table itself.  The method returns the total number of rows inserted
+  Returntype  : integer
+  Exceptions  : none
+  Caller      : general
+  Status      : Stable
+
+=cut
+
+sub bulk_insert {
+    my ($dest_dbc, $table_name, $data, $col_names, $insertion_mode) = @_;
+
+    my $insert_n   = 0;
+    while (@$data) {
+        my $insert_sql = ($insertion_mode || 'INSERT') . ' INTO ' . $table_name;
+        $insert_sql .= ' (' . join(',', @$col_names) . ')' if $col_names;
+        $insert_sql .= ' VALUES ';
+        my $first = 1;
+        while (@$data and (length($insert_sql) < 1_000_000)) {
+            $insert_sql .= ($first ? '' : ', ') . '(' . join(',', map {defined $_ ? '"'.$_.'"' : 'NULL'} @{shift @$data}) . ')';
+            $first = 0;
+        }
+        $insert_n += $dest_dbc->do($insert_sql) or die "Could not execute the insert because of ".$dest_dbc->db_handle->errstr;
+    }
+    return $insert_n;
+}
+
 
 1;
  

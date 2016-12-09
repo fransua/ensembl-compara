@@ -1,4 +1,19 @@
 #!/usr/bin/env perl
+# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [2016] EMBL-European Bioinformatics Institute
+# 
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# 
+#      http://www.apache.org/licenses/LICENSE-2.0
+# 
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 use strict;
 use warnings;
 
@@ -54,6 +69,20 @@ my $exp_dataflow = [
 	}
 ];
 
+my $exp_dataflow2 = [
+          {
+            'genome_db_id' => '87'
+          },
+          {
+            'genome_db_id' => '111'
+          },
+          {
+            'genome_db_id' => '112'
+          },
+          {
+            'genome_db_id' => '142'
+          }
+        ];
 
 standaloneJob(
 	'Bio::EnsEMBL::Compara::RunnableDB::OrthologQM::PairCollection', # module
@@ -62,11 +91,21 @@ standaloneJob(
 		'compara_db' => $compara_db,
 	},
 	[ # list of events to test for (just 1 event in this case)
+		[
+			'DATAFLOW',
+			$exp_dataflow2,
+			2
+		],
 		[ # start event
 			'DATAFLOW', # event to test for (could be WARNING)
-			$exp_dataflow, # expected data flowed out
-			2 # dataflow branch
+			{ 'genome_db_pairs' => $exp_dataflow}, # expected data flowed out
+			1 # dataflow branch
 		], # end event
+		[
+			'DATAFLOW',
+			{ 'aln_mlss_ids' => undef },
+			3
+		],
 	]
 );
 
@@ -78,11 +117,21 @@ standaloneJob(
 		'compara_db'     => $compara_db,
 	},
 	[ # list of events to test for (just 1 event in this case)
+		[
+			'DATAFLOW',
+			$exp_dataflow2,
+			2
+		],
 		[ # start event
 			'DATAFLOW', # event to test for (could be WARNING)
-			$exp_dataflow, # expected data flowed out
-			2 # dataflow branch
+			{ 'genome_db_pairs' => $exp_dataflow}, # expected data flowed out
+			1 # dataflow branch
 		], # end event
+		[
+			'DATAFLOW',
+			{ 'aln_mlss_ids' => undef },
+			3
+		],
 	]
 );
 
@@ -113,17 +162,28 @@ standaloneJob(
 		'compara_db'     => $compara_db,
 	},
 	[ # list of events to test for (just 1 event in this case)
+		[
+			'DATAFLOW',
+			$exp_dataflow2,
+			2
+		],
 		[ # start event
 			'DATAFLOW', # event to test for (could be WARNING)
-			$exp_dataflow, # expected data flowed out
-			2 # dataflow branch
+			{ 'genome_db_pairs' => $exp_dataflow}, # expected data flowed out
+			1 # dataflow branch
 		], # end event
+		[
+			'DATAFLOW',
+			{ 'aln_mlss_ids' => undef },
+			3
+		],
 	]
 );
 
 
 # Test pair of species #
 $exp_dataflow = [ { 'species1_id' => '87', 'species2_id' => '111' } ];
+$exp_dataflow2 = [ { 'genome_db_id' => '87' }, { 'genome_db_id' => '111' } ];
 
 standaloneJob(
 	'Bio::EnsEMBL::Compara::RunnableDB::OrthologQM::PairCollection', # module
@@ -133,11 +193,21 @@ standaloneJob(
 		'compara_db' => $compara_db,
 	},
 	[ # list of events to test for (just 1 event in this case)
+		[
+			'DATAFLOW',
+			$exp_dataflow2,
+			2
+		],
 		[ # start event
 			'DATAFLOW', # event to test for (could be WARNING)
-			$exp_dataflow, # expected data flowed out
-			2 # dataflow branch
+			{ 'genome_db_pairs' => $exp_dataflow}, # expected data flowed out
+			1 # dataflow branch
 		], # end event
+		[
+			'DATAFLOW',
+			{ 'aln_mlss_ids' => undef },
+			3
+		],
 	]
 );
 

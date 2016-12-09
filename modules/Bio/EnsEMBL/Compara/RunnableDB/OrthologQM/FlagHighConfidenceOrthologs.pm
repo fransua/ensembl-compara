@@ -69,15 +69,15 @@ sub fetch_input {
     my $condition = "perc_id >= ".$thresholds->[2]." AND ";
 
     # Check whether there are GOC and WGA scores for this mlss_id
-    my $sql_score_count = "SELECT COUNT(goc_score IS NOT NULL), COUNT(wga_coverage) IS NOT NULL FROM homology WHERE $homology_filter";
+    my $sql_score_count = "SELECT COUNT(goc_score IS NOT NULL), COUNT(wga_coverage IS NOT NULL) FROM homology WHERE $homology_filter";
     my ($has_goc, $has_wga) = $self->compara_dba->dbc->db_handle->selectrow_array($sql_score_count, undef, $mlss_id);
 
     my @external_conditions;
     if ($has_goc and $thresholds->[0]) {
-        push @external_conditions, "goc_score >= ".$thresholds->[0];
+        push @external_conditions, "goc_score IS NOT NULL AND goc_score >= ".$thresholds->[0];
     }
     if ($has_wga and $thresholds->[1]) {
-        push @external_conditions, "wga_coverage >= ".$thresholds->[1];
+        push @external_conditions, "wga_coverage IS NOT NULL AND wga_coverage >= ".$thresholds->[1];
     }
 
     # Use the independent metrics if possible or fallback to is_tree_compliant
@@ -136,7 +136,7 @@ sub write_output {
         $self->_write_distribution($mlss, 'goc', $thresholds->[0], $sql_goc_distribution);
     }
     if ($high_confidence_condition =~ /wga_coverage/) {
-        my $sql_wga_distribution = "SELECT FLOOR(wga_coverage/25)*25, COUNT(*) FROM homology WHERE $homology_filter GROUP BY FLOOR(wga_coverage)";
+        my $sql_wga_distribution = "SELECT FLOOR(wga_coverage/25)*25, COUNT(*) FROM homology WHERE $homology_filter GROUP BY FLOOR(wga_coverage/25)";
         $self->_write_distribution($mlss, 'wga', $thresholds->[1], $sql_wga_distribution);
     }
 }

@@ -193,13 +193,14 @@ sub new {
 sub new_from_Slice {
     my ($class, $slice, $genome_db) = @_;
 
-    return $class->new(
-        -NAME => $slice->seq_region_name(),
-        -LENGTH => $slice->seq_region_length(),
-        -COORD_SYSTEM_NAME => $slice->coord_system_name(),
-        -IS_REFERENCE => $slice->is_reference(),
-        -GENOME_DB => $genome_db,
-    );
+    return $class->new_fast( {
+        'name' => $slice->seq_region_name(),
+        'length' => $slice->seq_region_length(),
+        'coord_system_name' => $slice->coord_system_name(),
+        'is_reference' => $slice->is_reference(),
+        'genome_db' => $genome_db,
+        'genome_db_id' => $genome_db->dbID,
+    } );
 }
 
 
@@ -407,7 +408,7 @@ sub is_reference {
 
 sub slice {
   my ($self) = @_;
-  
+
   unless (defined $self->{'_slice'}) {
     if (!defined($self->genome_db)) {
       warn "Cannot get the Bio::EnsEMBL::Compara::GenomeDB object corresponding to [".$self."]";
@@ -478,14 +479,28 @@ sub isMT {
 
     return 1 if ($self->name =~ /^MT$/i);
 
-    #Check synonyms
-    my $slice = $self->slice;
-    foreach my $synonym (@{$slice->get_all_synonyms}) {
-        if ($synonym->name =~ /^MT$/i) {
+    if ($self->genome_db->db_adaptor->isa("Bio::EnsEMBL::Compara::GenomeMF")){
+        if (!defined($self->coord_system_name)) {
+            warn "Cannot get the coord_system_name corresponding to [".$self."]";
+            return 0;
+        }
+        elsif ($self->coord_system_name eq "MT"){
             return 1;
         }
+        else{
+            return 0;
+        }
     }
-    return 0;
+    else{
+        #Check synonyms
+        my $slice = $self->slice;
+        foreach my $synonym (@{$slice->get_all_synonyms}) {
+            if ($synonym->name =~ /^MT$/i) {
+                return 1;
+            }
+        }
+        return 0;
+    }
 }
 
 

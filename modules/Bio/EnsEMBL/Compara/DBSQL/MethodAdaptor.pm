@@ -107,18 +107,11 @@ sub _unique_attributes {
 sub _objs_from_sth {
     my ($self, $sth) = @_;
 
-    my @methods = ();
-
-    while ( my ($dbID, $type, $class) = $sth->fetchrow() ) {
-        push @methods, Bio::EnsEMBL::Compara::Method->new_fast( {
-            dbID    => $dbID,
-            adaptor => $self,
-            _type   => $type,
-            _class  => $class,
-        } );
-    }
-
-    return \@methods;
+    return $self->generic_objs_from_sth($sth, 'Bio::EnsEMBL::Compara::Method', [
+            'dbID',
+            '_type',
+            '_class',
+        ] );
 }
 
 
@@ -187,29 +180,24 @@ sub store {
     }
     if (my $other_method = $self->_synchronise($method)) {
 
-        #if ( ($other_method->class ne $method->class) && ($method->class ne "") ) {
-        if ($other_method->class ne $method->class) {
-            my $sql = 'UPDATE method_link SET class = ? WHERE method_link_id = ?';
-            my $sth = $self->prepare( $sql ) or die "Could not prepare $sql\n";
-
-            my $return_code = $sth->execute( $method->class(), $method->dbID() )
-                or die "Could not store ".$method->toString."\n";
-
-            $sth->finish();
-        }
+        $self->generic_update('method_link',
+            {
+                'type'              => $method->type,
+                'class'             => $method->class,
+            }, {
+                'method_link_id'    => $method->dbID,
+            } );
 
         $self->_id_cache->remove($method->dbID);
 
     } else {
 
-        my $sql = 'INSERT INTO method_link (method_link_id, type, class) VALUES (?, ?, ?)';
-        my $sth = $self->prepare( $sql ) or die "Could not prepare $sql\n";
-
-        my $return_code = $sth->execute( $method->dbID(), $method->type(), $method->class() )
-            or die "Could not store ".$method->toString."\n";
-
-        $self->attach($method, $self->dbc->db_handle->last_insert_id(undef, undef, 'method_link', 'method_link_id') );
-        $sth->finish();
+        my $dbID = $self->generic_insert('method_link', {
+                'method_link_id'    => $method->dbID,
+                'type'              => $method->type,
+                'class'             => $method->class,
+            }, 'method_link_id');
+        $self->attach($method, $dbID);
     }
     
     $self->_id_cache->put($method->dbID, $method);

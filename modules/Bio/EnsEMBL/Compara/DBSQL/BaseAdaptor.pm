@@ -28,6 +28,19 @@ use Bio::EnsEMBL::Compara::Utils::Scalar qw(:argument);
 
 use base ('Bio::EnsEMBL::DBSQL::BaseAdaptor');
 
+use constant ID_CHUNK_SIZE => 500;
+
+
+=head2 attach
+
+  Example     : $self->attach($object, $dbID);
+  Description : Simple method that attaches the object to this adaptor, and sets the dbID at the same time.
+  Returntype  : Integer. The new dbID of the object
+  Exceptions  : none
+  Caller      : Adaptors (usually whilst fetching objects)
+  Status      : Stable
+
+=cut
 
 sub attach {
     my ($self, $object, $dbID) = @_;
@@ -180,6 +193,47 @@ sub generic_fetch {
 }
 
 
+=head2 generic_objs_from_sth
+
+  Arg [1]     : $sth Statement handle
+  Arg [2]     : String $class. The package name of the new objects to build
+  Arg [3]     : Arrayref of strings $field_names. How each column is named in the
+                object hash (use undef to skip a column)
+  Arg [4]     : (opt) $callback. Callback method to provide additional fields
+  Example     : my $generic_objs_from_sth = $object_name->generic_objs_from_sth();
+  Description : Generic method that can fulfill the role of _objs_from_sth().
+                It will iterate over each row of the resultset, call new_fast() to
+                build a new object and map each column to an internal field.
+                $callback can be used to provide additional fields or to transform
+                some (first set them to undef in $field_names)
+  Returntype  : Arrayref of objects
+  Exceptions  : none
+  Caller      : Adaptors (usually in _objs_from_sth() of fetch*)
+  Status      : Stable
+
+=cut
+
+sub generic_objs_from_sth {
+    my ($self, $sth, $class, $field_names, $callback) = @_;
+
+    my @objs;
+    my @cols = $self->_columns;
+    my @vals = map {undef} @cols;
+    my @ind  = 0..(scalar(@cols)-1);
+
+    $sth->bind_columns(\(@vals));
+    while ( $sth->fetch() ) {
+        my $obj = $class->new_fast( {
+                'adaptor' => $self,
+                (map {$field_names->[$_] => $vals[$_]} grep {$field_names->[$_]} @ind),
+                $callback ? (%{ $callback->(\@vals) }) : (),
+            } );
+        push @objs, $obj;
+    }
+    return \@objs;
+}
+
+
 =head2 mysql_server_prepare
 
   Arg[1]      : Boolean (opt)
@@ -235,6 +289,8 @@ sub mysql_server_prepare {
 
 sub prepare {
     my ($self, $query, @args) = @_;
+
+    #$query =~ s/SELECT/SELECT SQL_NO_CACHE/i;
 
     if (exists $self->{'_cached_statements'}) {
         return $self->{'_cached_statements'}->{$query} if exists $self->{'_cached_statements'}->{$query};
@@ -334,14 +390,78 @@ sub generic_fetch_Iterator {
 }
 
 
+=head2 split_and_callback
+
+  Arg[1]      : Arrayref $list_of_values. All the IDs to retrieve
+  Arg[2]      : String $column_name - Name of the column in the table the IDs can be found in
+  Arg[3]      : Integer $column_sql_type. DBI's "SQL type"
+  Arg[4]      : Callback function $callback
+  Example     : $adaptor->split_and_callback($stable_ids, 'm.stable_id', SQL_VARCHAR, sub { ... });
+  Description : Wrapper around the given callback that calls it iteratively with IN constraints
+                that contain chunks of $list_of_values.
+  Returntype  : none
+  Exceptions  : none
+  Caller      : general
+
+=cut
+
+sub split_and_callback {
+    my ($self, $list_of_values, $column_name, $column_sql_type, $callback) = @_;
+    foreach my $id_list (@{ split_list($list_of_values, ID_CHUNK_SIZE) }) {
+        $callback->($self->generate_in_constraint($id_list, $column_name, $column_sql_type, 1)) ;
+    }
+}
+
+
+=head2 generic_fetch_concatenate
+
+  Arg[1]      : Arrayref $list_of_values. All the IDs to retrieve
+  Arg[2]      : String $column_name - Name of the column in the table the IDs can be found in
+  Arg[3]      : Integer $column_sql_type. DBI's "SQL type"
+  Arg[4..n]   : Extra parameters passed to construct_sql_query() (after the where constraint)
+  Example     : $adaptor->generic_fetch_concatenate($stable_ids, 'm.stable_id', SQL_VARCHAR);
+  Description : Special version of split_and_callback() that calls generic_fetch() with the
+                The core API already has already such a method - _uncached_fetch_all_by_id_list() -
+                so this one is only needed if you want to use join clauses or a "final" clause.
+  Returntype  : Arrayref of objects
+  Exceptions  : none
+  Caller      : general
+
+=cut
+
 sub generic_fetch_concatenate {
     my ($self, $list_of_values, $column_name, $column_sql_type, @generic_fetch_args) = @_;
     my @results;
-    foreach my $id_list (@{ split_list($list_of_values) }) {
-        push @results, @{ $self->generic_fetch( $self->generate_in_constraint($id_list, $column_name, $column_sql_type), @generic_fetch_args ) };
-    }
+    $self->split_and_callback($list_of_values, $column_name, $column_sql_type, sub {
+        push @results, @{ $self->generic_fetch(shift, @generic_fetch_args) };
+    } );
     return \@results;
 }
+
+
+# The Core API selects too large chunks. Here we reduce $max_size
+sub _uncached_fetch_all_by_id_list {
+    my ($self, $id_list_ref, $slice, $id_type, $numeric) = @_;
+    return $self->SUPER::_uncached_fetch_all_by_id_list($id_list_ref, $slice, $id_type, $numeric, ID_CHUNK_SIZE);
+}
+
+
+=head2 _synchronise
+
+  Arg [1]     : $obj. The object to check in the database
+  Example     : my $exist_obj = $self->_synchronise($test_obj);
+  Description : Check in the database whether there is already an object with the
+                same properties. The test is performed against the columns defined
+                in _unique_attributes() and the dbID column. The function will die
+                if there is already an object with either of these conditions:
+                 - same dbID (when $obj has a dbID) but different data
+                 - same data but different dbID (when $obj has a dbID)
+  Returntype  : Object instance or undef
+  Exceptions  : Dies if there is a collision
+  Caller      : Adaptors only
+  Status      : Stable
+
+=cut
 
 sub _synchronise {
     my ($self, $object) = @_;
@@ -391,9 +511,147 @@ sub _synchronise {
 }
 
 
+=head2 _unique_attributes
+
+  Description : Returns a list of attributes that can uniquely identify an object
+                for this adaptor.
+  Returntype  : List of attribute names
+  Exceptions  : none
+  Caller      : _synchronise()
+  Status      : Stable
+
+=cut
+
 sub _unique_attributes {
     return ();
 }
+
+
+=head2 generic_insert
+
+  Arg [1]     : String $table. Tha name of the table
+  Arg [2]     : Hashref $col_to_values. Mapping between the column names and the values to insert
+  Arg [3]     : (opt) String $last_insert_id_column. Name of the column to retrieve an AUTO_INCREMENT from
+  Example     : my $dbID = $self->generic_insert('method_link', {
+                        'method_link_id'    => $method->dbID,
+                        'type'              => $method->type,
+                        'class'             => $method->class,
+                    }, 'method_link_id');
+                $self->attach($method, $dbID);
+  Description : Generic method to insert a row into a table. It automatically writes an
+                INSERT statement with the correct list of columns, number of placeholders;
+                then executes it and queries the value of $last_insert_id_column.
+  Returntype  : Integer. Value of the $last_insert_id_column (if requested)
+                This may be a copy of what has been provided in $col_to_values;
+  Exceptions  : none
+  Caller      : Adaptors (usually store())
+  Status      : Stable
+
+=cut
+
+sub generic_insert {
+    my ($self, $table, $col_to_values, $last_insert_id_column) = @_;
+
+    my $dbID;
+
+    if ($last_insert_id_column) {
+        if (defined ($dbID = $col_to_values->{$last_insert_id_column})) {
+            # dbID provided, so nothing to return
+            $last_insert_id_column = undef;
+        } else {
+            # dbID not provided, let's skip the column to make clear we want an AUTO_INCREMENT
+            delete $col_to_values->{$last_insert_id_column};
+        }
+    }
+
+    my @columns = keys %$col_to_values;
+    my @values = map {$col_to_values->{$_}} @columns;
+    my $sql = sprintf('INSERT INTO %s (%s) VALUES (%s)', $table, join(', ', @columns), join(', ', map {'?'} @columns));
+    my $sth = $self->prepare( $sql ) or die "Could not prepare '$sql'\n";
+    $sth->execute(map {$col_to_values->{$_}} @columns)
+        or die sprintf("Could not store (%s)\n", join(', ', map {$_.'='.($col_to_values->{$_} // '<NULL>')} @columns));
+
+    # This assumes that the first field is the auto_increment column
+    if ($last_insert_id_column) {
+        $dbID = $self->dbc->db_handle->last_insert_id(undef, undef, $table, $last_insert_id_column)
+                    or die "Failed to obtain a dbID from the $table table\n";
+    }
+    $sth->finish();
+    return $dbID;
+}
+
+
+=head2 generic_multiple_insert
+
+  Arg [1]     : String $table. Tha name of the table
+  Arg [2]     : Arrayref $columns. Name of the columns to populate
+  Arg [3]     : Arrayref of the values (row by row) and ordered as in $columns
+  Example     : $self->generic_multiple_insert(
+                    'species_set',
+                    ['species_set_id', 'genome_db_id'],
+                    [map {[$dbID, $_->dbID]} @$genome_dbs]
+                );
+  Description : Generic method to insert many rows into a table. It automatically writes an
+                INSERT statement with the correct list of columns, number of placeholders;
+                then executes it at once with execute_array().
+                NOTE: The function empties $input_data, so provide a copy if you need the data
+                In theory, execute_array() is supposed to be able to call INSERT with multiple
+                rows at once, making it similarly efficient as SQL statements from mysqldump,
+                but I haven't seen that in my benchmark. Not sure DBD::mysql supports that.
+                If you require performance, have a look at Utils::CopyData
+  Returntype  : none
+  Exceptions  : none
+  Caller      : Adaptors (usually store())
+  Status      : Stable
+
+=cut
+
+sub generic_multiple_insert {
+    my ($self, $table, $columns, $input_data) = @_;
+
+    my $sql = sprintf('INSERT INTO %s (%s) VALUES (%s)', $table, join(', ', @$columns), join(', ', map {'?'} @$columns));
+    my $sth = $self->prepare( $sql ) or die "Could not prepare '$sql'\n";
+    my $fetch_callback = (ref($input_data) eq 'ARRAY') ? sub {shift @$input_data} : $input_data;
+    $sth->execute_for_fetch( $fetch_callback )
+        or die sprintf("Could not store values as (%s)\n", join(', ', @$columns));
+    $sth->finish();
+}
+
+
+=head2 generic_update
+
+  Arg [1]     : String $table. Tha name of the table
+  Arg [2]     : Hashref $col_to_values_update. Mapping between the column names and the values to update
+  Arg [3]     : Hashref $col_to_values_where. Mapping between the column names and the values for the WHERE clause
+  Example     : $self->generic_update('method_link',
+                    {
+                        'type'              => $method->type,
+                        'class'             => $method->class,
+                    }, {
+                        'method_link_id'    => $method->dbID,
+                    } );
+  Description : Generic method to update a row in a table. It automatically writes an UPDATE
+                statement with the correct list of columns and number of placeholders on both
+                the SET and WHERE clauses; then executes it.
+  Returntype  : Number of rows affected (as return by execute())
+  Exceptions  : none
+  Caller      : Adaptors (usually store())
+  Status      : Stable
+
+=cut
+
+sub generic_update {
+    my ($self, $table, $col_to_values_update, $col_to_values_where) = @_;
+
+    my @columns_update = keys %$col_to_values_update;
+    my @columns_where = keys %$col_to_values_where;
+    my $sql = sprintf('UPDATE %s SET %s WHERE %s', $table, join(', ', map {$_.'=?'} @columns_update), join(' AND ', map {$_.'=?'} @columns_where));
+    my $sth = $self->prepare( $sql ) or die "Could not prepare '$sql'\n";
+    my $rc = $sth->execute(map {$col_to_values_update->{$_}} @columns_update, map {$col_to_values_where->{$_}} @columns_where);
+    $sth->finish;
+    return $rc;
+}
+
 
 1;
 

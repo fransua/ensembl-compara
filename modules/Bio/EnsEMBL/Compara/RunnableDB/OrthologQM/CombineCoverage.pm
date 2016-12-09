@@ -1,3 +1,22 @@
+=head1 LICENSE
+
+Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+Copyright [2016] EMBL-European Bioinformatics Institute
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+=cut
+
 =pod
 
 =head1 NAME
@@ -67,7 +86,7 @@ sub run {
 
 	my ($combined_coverage, @qual_summary, %scores);
 	if ( defined $exon_ranges ){
-		foreach my $aln_mlss ( keys %{ $aln_ranges } ){
+		foreach my $aln_mlss ( sort keys %{ $aln_ranges } ){
 			foreach my $gdb_id ( sort {$a <=> $b} keys %{ $orth_ranges } ){
 				$combined_coverage = $self->_combined_coverage( $orth_ranges->{$gdb_id}, $aln_ranges->{$aln_mlss}->{$gdb_id}, $exon_ranges->{$gdb_id} );
 				push( @qual_summary, 

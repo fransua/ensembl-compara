@@ -1,6 +1,7 @@
 =head1 LICENSE
 
-Copyright [1999-2016] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+Copyright [2016] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -59,9 +60,10 @@ sub param_defaults {
 
         'expand_tables'         => 1,
 
-        'protein_tree_stable_id'=> undef,
         'rfam_model_id'         => undef,
         'family_stable_id'      => undef,
+        'protein_tree_stable_id'        => undef,
+        'method_link_species_set_id'    => undef,
 
         'foreign_keys_db'       => undef,   # can be undef if $self->compara_dba is InnoDB and has foreign keys
     };
@@ -81,6 +83,7 @@ sub fetch_input {
     $self->_expand_array('protein_tree_stable_id', 'gene_tree_root', 'stable_id');
     $self->_expand_array('rfam_model_id', 'gene_tree_root_tag', 'tag = "model_id" AND value');
     $self->_expand_array('family_stable_id', 'family', 'stable_id');
+    $self->_expand_array('method_link_species_set_id', 'method_link_species_set', 'method_link_species_set_id');
 }
 
 # Here we allow each entry point to be reused several times

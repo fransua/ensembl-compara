@@ -511,9 +511,7 @@ CREATE TABLE `species_tree_node_tag` (
 
 @see species_tree_node
 @see species_tree_root
-@see QC_split_genes
-@see short_orth_genes
-@see long_orth_genes
+@see gene_member_qc
 */
 
 
@@ -586,7 +584,7 @@ CREATE TABLE synteny_region (
 
 /**
 @table dnafrag
-@desc  This table defines the genomic sequences used in the comparative genomics analyisis. It is used by the @link genomic_align_block table to define aligned sequences. It is also used by the @link dnafrag_region table to define syntenic regions.<br />NOTE: Index <name> has genome_db_id in the first place because unless fetching all dnafrags or fetching by dnafrag_id, genome_db_id appears always in the WHERE clause. Unique key <name> is used to ensure that Bio::EnsEMBL::Compara::DBSQL::DnaFragAdaptor->fetch_by_GenomeDB_and_name will always fetch a single row. This can be used in the EnsEMBL Compara DB because we store top-level dnafrags only.
+@desc  This table defines the genomic sequences used in the comparative genomics analyisis. It is used by the @link genomic_align_block table to define aligned sequences. It is also used by the @link dnafrag_region table to define syntenic regions.<br />NOTE: Index &lt;name&gt; has genome_db_id in the first place because unless fetching all dnafrags or fetching by dnafrag_id, genome_db_id appears always in the WHERE clause. Unique key &lt;name&gt; is used to ensure that Bio::EnsEMBL::Compara::DBSQL::DnaFragAdaptor->fetch_by_GenomeDB_and_name will always fetch a single row. This can be used in the EnsEMBL Compara DB because we store top-level dnafrags only.
 @colour #FF8500
 
 @example    This query shows the chromosome 14 of the Human genome (genome_db.genome_db_id = 150 refers to Human genome in this example) which is 107349540 nucleotides long.
@@ -735,10 +733,8 @@ CREATE TABLE genomic_align_tree (
 /**
 @table genomic_align
 @desc  This table contains the coordinates and all the information needed to rebuild genomic alignments. Every entry corresponds to one of the aligned sequences. It also contains an external key to the @link method_link_species_set which refers to the software and set of species used for getting the corresponding alignment. The aligned sequence is defined by an external reference to the @link dnafrag table, the starting and ending position within this dnafrag, the strand and a cigar_line.<br />
-The original aligned sequence is not stored but it can be retrieved using the <b>cigar_line</b> field and the original sequence. The cigar line defines the sequence of matches/mismatches and deletions (or gaps). For example, this cigar line <b>2MD3M2D2M</b> will mean that the alignment contains 2 matches/mismatches, 1 deletion (number 1 is omitted in order to save some space), 3 matches/mismatches, 2 deletions and 2 matches/mismatches. If the original sequence is:<br />
-<ul><li>Original sequence: AACGCTT</li></ul>
-
-The aligned sequence will be:<br />
+The original aligned sequence is not stored but it can be retrieved using the <b>cigar_line</b> field and the original sequence. The cigar line defines the sequence of matches/mismatches and deletions (or gaps). For example, this cigar line <b>2MD3M2D2M</b> will mean that the alignment contains 2 matches/mismatches, 1 deletion (number 1 is omitted in order to save some space), 3 matches/mismatches, 2 deletions and 2 matches/mismatches.
+If the original sequence is <code>AACGCTT</code>, the aligned sequence will be:<br />
     <table>
       <caption>cigar line: 2MD3M2D2M</caption>
       <thead><tr>
@@ -1594,6 +1590,34 @@ CREATE TABLE gene_tree_node_attr (
 
 ) COLLATE=latin1_swedish_ci ENGINE=MyISAM;
 
+/**
+@table gene_member_qc
+@desc  This table contains gene quality information from the geneset_QC pipeline
+@colour   #1E90FF
+
+@column gene_member_stable_id    EnsEMBL stable ID
+@column genome_db_id             Internal unique ID for this table
+@column seq_member_id            canonical seq_member_id
+@column n_species                -n_species
+@column  n_orth                  -n_orth
+@column  avg_cov                 -avg_cov
+@column status                   "orphaned-gene", "split-gene", "long-gene" or "short-gene"
+*/
+
+CREATE TABLE gene_member_qc (
+  gene_member_stable_id       varchar(128) NOT NULL,
+  genome_db_id                int(10) unsigned NOT NULL,
+  seq_member_id               int(10),
+  n_species                   INT,
+  n_orth                      INT,
+  avg_cov                     FLOAT,
+  status                      varchar(50) NOT NULL,
+
+  FOREIGN KEY (genome_db_id) REFERENCES genome_db(genome_db_id),
+
+  key (gene_member_stable_id)
+
+) COLLATE=latin1_swedish_ci ENGINE=MyISAM;
 
 /**
 @table gene_tree_object_store
@@ -1943,8 +1967,8 @@ CREATE TABLE homology_member (
 @column mapping_session_id    Internal unique ID
 @column type                  Type of stable_ids that were mapped during this session
 @column when_mapped           Normally, we use the date of creation of the mapping file being loaded. This prevents the date from chaging even if we accidentally remove the entry and have to re-load it.
-@column rel_from              rel.number from which the stable_ids were mapped during this session. rel_from < rel_to
-@column rel_to                rel.number to which the stable_ids were mapped during this session. rel_from < rel_to
+@column rel_from              rel.number from which the stable_ids were mapped during this session. rel_from &lt; rel_to
+@column rel_to                rel.number to which the stable_ids were mapped during this session. rel_from &lt; rel_to
 @column prefix                Prefix
 */
 
@@ -2051,20 +2075,16 @@ CREATE TABLE `CAFE_species_gene` (
 
 -- Add schema version to database
 DELETE FROM meta WHERE meta_key='schema_version';
-INSERT INTO meta (species_id, meta_key, meta_value) VALUES (NULL, 'schema_version', '86');
+INSERT INTO meta (species_id, meta_key, meta_value) VALUES (NULL, 'schema_version', '87');
 -- Add schema type to database
 DELETE FROM meta WHERE meta_key='schema_type';
 INSERT INTO meta (species_id, meta_key, meta_value) VALUES (NULL, 'schema_type', 'compara');
 
 # Patch identifier
 INSERT INTO meta (species_id, meta_key, meta_value)
-  VALUES (NULL, 'patch', 'patch_85_86_a.sql|schema_version');
+  VALUES (NULL, 'patch', 'patch_86_87_a.sql|schema_version');
 INSERT INTO meta (species_id, meta_key, meta_value)
-  VALUES (NULL, 'patch', 'patch_85_86_b.sql|species_tree_root.species_tree');
+  VALUES (NULL, 'patch', 'patch_86_87_b.sql|gene_member_qc');
 INSERT INTO meta (species_id, meta_key, meta_value)
-  VALUES (NULL, 'patch', 'patch_85_86_c.sql|gene_tree_root.species_tree_root_id');
-INSERT INTO meta (species_id, meta_key, meta_value)
-  VALUES (NULL, 'patch', 'patch_85_86_d.sql|homology.high_confidence');
-INSERT INTO meta (species_id, meta_key, meta_value)
-  VALUES (NULL, 'patch', 'patch_85_86_e.sql|gene_member_hom_stats');
+  VALUES (NULL, 'patch', 'patch_86_87_c.sql|msa_stats_to_stn_tag');
 

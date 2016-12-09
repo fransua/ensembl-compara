@@ -106,8 +106,8 @@ sub fetch_all_by_synteny_region_id {
     throw("fetch_all_by_synteny_region_id with no synteny_region_id!");
   }
 #  print "synteny_region_id : $synteny_region_id\n";
-  my $sth = $self->prepare("select synteny_region_id, dnafrag_id, dnafrag_start, dnafrag_end, dnafrag_strand from dnafrag_region where synteny_region_id = $synteny_region_id");
-  $sth->execute;
+  my $sth = $self->prepare('SELECT synteny_region_id, dnafrag_id, dnafrag_start, dnafrag_end, dnafrag_strand FROM dnafrag_region WHERE synteny_region_id = ?');
+  $sth->execute($synteny_region_id);
 
   
   my ($dnafrag_id, $dnafrag_start, $dnafrag_end, $dnafrag_strand);
@@ -115,13 +115,14 @@ sub fetch_all_by_synteny_region_id {
   
   my $dfrs;
   while ($sth->fetch()) {
-    my $dfr = new Bio::EnsEMBL::Compara::DnaFragRegion;
-    $dfr->synteny_region_id($synteny_region_id);
-    $dfr->dnafrag_id($dnafrag_id);
-    $dfr->dnafrag_start($dnafrag_start);
-    $dfr->dnafrag_end($dnafrag_end);
-    $dfr->dnafrag_strand($dnafrag_strand);
-    $dfr->adaptor($self);
+    my $dfr = Bio::EnsEMBL::Compara::DnaFragRegion->new_fast( {
+            'synteny_region_id' => $synteny_region_id,
+            'dnafrag_id'        => $dnafrag_id,
+            'dnafrag_start'     => $dnafrag_start,
+            'dnafrag_end'       => $dnafrag_end,
+            'dnafrag_strand'    => $dnafrag_strand,
+            'adaptor'           => $self,
+        } );
     push @{$dfrs}, $dfr;
   }
   return $dfrs;
@@ -134,7 +135,7 @@ sub fetch_all_by_synteny_region_id {
   Example    : $dnafrag_region_adaptor->store($dnafrag_region)
   Description: Stores the corresponding Bio::EnsEMBL::Compara::DnaFragRegion
                in the database.
-  Returntype : int
+  Returntype : none
   Exception  : Thrown if the argument is not defined
   Caller     : Bio::EnsEMBL::Compara::DBSQL::SyntenyRegionAdaptor
   Status     : At risk
@@ -151,8 +152,6 @@ sub store {
    
    $sth->execute($dfr->synteny_region_id, $dfr->dnafrag_id, $dfr->dnafrag_start, $dfr->dnafrag_end, $dfr->dnafrag_strand);
    $dfr->adaptor($self);
-   
-   return 1;
 }
 
 1;

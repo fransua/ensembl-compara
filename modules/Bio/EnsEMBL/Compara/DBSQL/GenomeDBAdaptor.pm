@@ -220,7 +220,7 @@ sub fetch_by_registry_name {
 sub fetch_by_Slice {
   my ($self, $slice) = @_;
 
-  assert_ref($slice, 'Bio::EnsEMBL::Slice');
+  assert_ref($slice, 'Bio::EnsEMBL::Slice', 'slice');
   unless ($slice->adaptor) {
     throw("[$slice] must have an adaptor");
   }
@@ -428,13 +428,20 @@ sub store {
     if($self->_synchronise($gdb)) {
         return $self->update($gdb);
     } else {
-        my $sql = 'INSERT INTO genome_db (genome_db_id, name, assembly, genebuild, has_karyotype, is_high_coverage, taxon_id, genome_component, locator, first_release, last_release) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
-        my $sth= $self->prepare( $sql ) or die "Could not prepare '$sql'\n";
-        my $return_code = $sth->execute( $gdb->dbID, $gdb->name, $gdb->assembly, $gdb->genebuild, $gdb->has_karyotype, $gdb->is_high_coverage, $gdb->taxon_id, $gdb->genome_component, $gdb->locator, $gdb->first_release, $gdb->last_release )
-            or die "Could not store gdb(name='".$gdb->name."', assembly='".$gdb->assembly."', genebuild='".$gdb->genebuild."')\n";
-
-        $self->attach($gdb, $self->dbc->db_handle->last_insert_id(undef, undef, 'genome_db', 'genome_db_id') );
-        $sth->finish();
+        my $dbID = $self->generic_insert('genome_db', {
+                'genome_db_id'      => $gdb->dbID,
+                'name'              => $gdb->name,
+                'assembly'          => $gdb->assembly,
+                'genebuild'         => $gdb->genebuild,
+                'has_karyotype'     => $gdb->has_karyotype,
+                'is_high_coverage'  => $gdb->is_high_coverage,
+                'taxon_id'          => $gdb->taxon_id,
+                'genome_component'  => $gdb->genome_component,
+                'locator'           => $gdb->locator,
+                'first_release'     => $gdb->first_release,
+                'last_release'      => $gdb->last_release,
+            }, 'genome_db_id');
+        $self->attach($gdb, $dbID);
     }
 
     #make sure the id_cache has been fully populated
@@ -465,9 +472,21 @@ sub update {
         $reference_dba->get_GenomeDBAdaptor->update( $gdb );
     }
 
-    my $sql = 'UPDATE genome_db SET name=?, assembly=?, genebuild=?, taxon_id=?, genome_component=?, locator=?, first_release=?, last_release=? WHERE genome_db_id=?';
-    my $sth = $self->prepare( $sql ) or die "Could not prepare '$sql'\n";
-    $sth->execute( $gdb->name, $gdb->assembly, $gdb->genebuild, $gdb->taxon_id, $gdb->genome_component, $gdb->locator, $gdb->first_release, $gdb->last_release, $gdb->dbID );
+    $self->generic_update('genome_db',
+        {
+                'name'              => $gdb->name,
+                'assembly'          => $gdb->assembly,
+                'genebuild'         => $gdb->genebuild,
+                #'has_karyotype'     => $gdb->has_karyotype,
+                #'is_high_coverage'  => $gdb->is_high_coverage,
+                'taxon_id'          => $gdb->taxon_id,
+                'genome_component'  => $gdb->genome_component,
+                'locator'           => $gdb->locator,
+                'first_release'     => $gdb->first_release,
+                'last_release'      => $gdb->last_release,
+        }, {
+            'genome_db_id' => $gdb->dbID()
+        } );
 
     $self->attach($gdb, $gdb->dbID() );     # make sure it is (re)attached to the "$self" adaptor in case it got stuck to the $reference_dba
     $self->_id_cache->put($gdb->dbID, $gdb);
@@ -598,41 +617,31 @@ sub _unique_attributes {
 
 sub _objs_from_sth {
     my ($self, $sth) = @_;
-    my @genome_db_list = ();
 
-    my ($dbid, $name, $assembly, $taxon_id, $genebuild, $has_karyotype, $is_high_coverage, $genome_component, $locator, $first_release, $last_release);
-    $sth->bind_columns(\$dbid, \$name, \$assembly, \$taxon_id, \$genebuild, \$has_karyotype, \$is_high_coverage, \$genome_component, \$locator, \$first_release, \$last_release);
-    while ($sth->fetch()) {
+    my $genome_db_list = $self->generic_objs_from_sth($sth, 'Bio::EnsEMBL::Compara::GenomeDB', [
+            'dbID',
+            'name',
+            'assembly',
+            '_taxon_id',
+            'genebuild',
+            'has_karyotype',
+            'is_high_coverage',
+            '_genome_component',
+            'locator',
+            '_first_release',
+            '_last_release',
+        ] );
 
-        my $gdb = Bio::EnsEMBL::Compara::GenomeDB->new_fast( {
-            'adaptor'   => $self,           # field name in sync with Bio::EnsEMBL::Storable
-            'dbID'      => $dbid,           # field name in sync with Bio::EnsEMBL::Storable
-            'name'      => $name,
-            'assembly'  => $assembly,
-            'genebuild' => $genebuild,
-            'has_karyotype' => $has_karyotype,
-            'is_high_coverage' => $is_high_coverage,
-            '_taxon_id' => $taxon_id,
-            '_genome_component'  => $genome_component,
-            'locator'   => $locator,
-            '_first_release' => $first_release,
-            '_last_release' => $last_release,
-        } );
-
+    # Here, we need to connect the genome_dbs to the Registry and to one another (polyploid genomes)
+    my %gdb_per_key = map {$_->_get_unique_key => $_} (grep {not $_->genome_component} @$genome_db_list);
+    foreach my $gdb (@$genome_db_list) {
         $gdb->sync_with_registry();
-
-        push @genome_db_list, $gdb;
-    }
-
-    # Here, we need to connect the genome_dbs for polyploid genomes
-    my %gdb_per_key = map {$_->_get_unique_key => $_} (grep {not $_->genome_component} @genome_db_list);
-    foreach my $gdb (@genome_db_list) {
         next unless $gdb->genome_component;
         my $key = $gdb->_get_unique_key;
         $gdb_per_key{$key}->component_genome_dbs($gdb->genome_component, $gdb) if $gdb_per_key{$key};
     }
 
-    return \@genome_db_list;
+    return $genome_db_list;
 }
 
 ############################################################

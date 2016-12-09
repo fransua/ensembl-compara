@@ -138,9 +138,7 @@ sub fetch_by_dbID {
 sub fetch_all_by_dbID_list {
     my ($self, $taxon_ids) = @_;
 
-    return [] unless scalar(@$taxon_ids);
-
-    my $nodes = $self->generic_fetch_concatenate($taxon_ids, 't.taxon_id', SQL_INTEGER);
+    my $nodes = $self->_uncached_fetch_all_by_id_list($taxon_ids, undef, 'taxon_id', 1);
     my %seen_taxon_ids = map {$_->taxon_id => $_} @$nodes;
 
     my @missing_taxon_ids = grep {!$seen_taxon_ids{$_}} @$taxon_ids;
@@ -148,7 +146,10 @@ sub fetch_all_by_dbID_list {
     if (@missing_taxon_ids) {
         my $join = [[['ncbi_taxa_name', 'n'], 'n.name_class = "merged_taxon_id" AND t.taxon_id = n.taxon_id']];
         my $more_nodes = $self->generic_fetch_concatenate(\@missing_taxon_ids, 'n.name', SQL_VARCHAR, $join);
-        push @$nodes, @$more_nodes;
+        foreach my $n (@$more_nodes) {
+            $seen_taxon_ids{$n->taxon_id} = $n unless $seen_taxon_ids{$n->taxon_id};
+        }
+        return [values %seen_taxon_ids];
     }
     return $nodes;
 }

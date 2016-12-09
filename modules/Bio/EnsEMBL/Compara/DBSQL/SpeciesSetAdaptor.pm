@@ -78,6 +78,32 @@ sub _ids_string {
 # store* methods #
 ##################
 
+sub _synchronise {
+    my ($self, $species_set) = @_;
+
+    assert_ref($species_set, 'Bio::EnsEMBL::Compara::SpeciesSet', 'argument to _synchronise');
+
+    my $dbID        = $species_set->dbID;
+    my $genome_dbs  = $species_set->genome_dbs;
+
+    if ( my $stored_ss = $self->fetch_by_GenomeDBs( $genome_dbs ) ) {
+        my $stored_dbID = $stored_ss->dbID;
+        if($dbID and $dbID!=$stored_dbID) {
+            die "Attempting to store an object with dbID=$dbID experienced a collision with same data but different dbID ($stored_dbID)\n";
+        } else {
+            $self->attach($species_set, $stored_dbID);
+            return $stored_ss;
+        }
+    } else {
+        if($dbID and $self->fetch_by_dbID( $dbID )) {
+            die sprintf("Attempting to store an object with dbID=$dbID (ss=%s) experienced a collision with same dbID but different data\n", join("/", map {$_->dbID} @$genome_dbs ));
+        } else {
+            return undef;   # not found, safe to insert
+        }
+    }
+}
+
+
 =head2 store
 
   Arg [1]     : Bio::EnsEMBL::Compara::SpeciesSet object
@@ -108,50 +134,30 @@ sub store {
         }
     }
 
-    my $dbID = $species_set->dbID;
-        # Could we have a species_set in the DB with the given contents already?
-    if ( my $stored_ss = $self->fetch_by_GenomeDBs( $genome_dbs ) ) {
-        my $stored_dbID = $stored_ss->dbID;
-        if($dbID and $dbID!=$stored_dbID) {
-            die "Attempting to store an object with dbID=$dbID experienced a collision with same data but different dbID ($stored_dbID)\n";
-        } else {
-            $dbID = $stored_dbID;
-            $self->update_header($species_set);
-        }
+    if($self->_synchronise($species_set)) {
+        $self->update_header($species_set);
+
     } else {
-        if($dbID) { # dbID is set in the object, but may refer to an object with different contents
-
-            if($self->fetch_by_dbID( $dbID )) {
-                # FIXME: should we update the table instead ?
-                die sprintf("Attempting to store an object with dbID=$dbID (ss=%s) experienced a collision with same dbID but different data\n", join("/", map {$_->dbID} @$genome_dbs ));
-            }
-
-            my $set_id_sql = 'INSERT INTO species_set_header (species_set_id, name, size, first_release, last_release) VALUES (?,?,?,?,?)';
-            $self->db->dbc->do( $set_id_sql, undef, $dbID, $species_set->name, $species_set->size, $species_set->first_release, $species_set->last_release ) or die "Could not perform '$set_id_sql'\n";
-
-        } else { # grab a new species_set_id by using AUTO_INCREMENT:
-
-            my $grab_id_sql = 'INSERT INTO species_set_header (name, size, first_release, last_release) VALUES (?,?,?,?)';
-            $self->db->dbc->do( $grab_id_sql, undef, $species_set->name, $species_set->size, $species_set->first_release, $species_set->last_release ) or die "Could not perform '$grab_id_sql'\n";
-
-            $dbID = $self->dbc->db_handle->last_insert_id(undef, undef, 'species_set_header', 'species_set_id');
-            if (not $dbID) {
-                die "Failed to obtain a species_set_id for the species_set being stored\n";
-            }
-        }
+        my $dbID = $self->generic_insert('species_set_header', {
+                'species_set_id'=> $species_set->dbID,
+                'name'          => $species_set->name,
+                'size'          => $species_set->size,
+                'first_release' => $species_set->first_release,
+                'last_release'  => $species_set->last_release,
+            }, 'species_set_id');
+        $self->attach($species_set, $dbID);
 
             # Add the data into the DB
-        my $sql = "INSERT INTO species_set (species_set_id, genome_db_id) VALUES (?, ?)";
-        my $sth = $self->prepare($sql);
-        foreach my $genome_db (@$genome_dbs) {
-            $sth->execute($dbID, $genome_db->dbID);
-        }
-        $sth->finish();
+        $self->generic_multiple_insert(
+            'species_set',
+            ['species_set_id', 'genome_db_id'],
+            [map {[$dbID, $_->dbID]} @$genome_dbs]
+        );
 
         $self->_id_cache->put($dbID, $species_set);
     }
 
-    $self->attach( $species_set, $dbID );
+    $self->attach( $species_set, $species_set->dbID );
     $self->sync_tags_to_database( $species_set );
 
     return $species_set;
@@ -172,8 +178,15 @@ sub store {
 sub update_header {
     my ($self, $species_set) = @_;
 
-    my $update_sql = 'UPDATE species_set_header SET name = ?, size = ?, first_release = ?, last_release = ? WHERE species_set_id = ?';
-    $self->db->dbc->do( $update_sql, undef, $species_set->name, $species_set->size, $species_set->first_release, $species_set->last_release, $species_set->dbID ) or die "Could not perform '$update_sql'\n";
+    $self->generic_update('species_set_header',
+        {
+            'name'          => $species_set->name,
+            'size'          => $species_set->size,
+            'first_release' => $species_set->first_release,
+            'last_release'  => $species_set->last_release,
+        }, {
+            'species_set_id'=> $species_set->dbID,
+        } );
 }
 
 

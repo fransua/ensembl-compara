@@ -104,6 +104,11 @@ sub default_options {
     # tree building parameters:
         'use_quick_tree_break'      => 0,
 
+    # sequence type used on the phylogenetic inferences
+    # It has to be set to 1 for the strains
+        'use_dna_for_phylogeny'     => 0,
+        #'use_dna_for_phylogeny'     => 1,
+
     # alignment filtering options
 
     # species tree reconciliation
@@ -298,6 +303,7 @@ sub resource_classes {
          '64Gb_job'     => {'LSF' => '-C0 -M64000 -R"select[mem>64000] rusage[mem=64000]"' },
          '512Gb_job'    => {'LSF' => '-C0 -M512000 -R"select[mem>512000] rusage[mem=512000]"' },
 
+         '8Gb_8c_job'  => {'LSF' => '-n 8 -C0 -M8000 -R"select[mem>8000] rusage[mem=8000] span[hosts=1]"' },
          '16Gb_8c_job' => {'LSF' => '-n 8 -C0 -M16000 -R"select[mem>16000] rusage[mem=16000] span[hosts=1]"' },
          '32Gb_8c_job' => {'LSF' => '-n 8 -C0 -M32000 -R"select[mem>32000] rusage[mem=32000] span[hosts=1]"' },
 

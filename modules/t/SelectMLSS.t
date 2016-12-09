@@ -1,4 +1,19 @@
 #!/usr/bin/env perl
+# Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
+# Copyright [2016] EMBL-European Bioinformatics Institute
+# 
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# 
+#      http://www.apache.org/licenses/LICENSE-2.0
+# 
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 use strict;
 use warnings;
 
@@ -44,6 +59,10 @@ standaloneJob(
 			"Found LASTZ alignment. mlss_id = 634"
 		],
 		[
+			'WARNING',
+			"Found 2 alignments between meleagris_gallopavo and gallus_gallus"
+		],
+		[
 			'DATAFLOW',
 			{ mlss => [647, 634] },
 			1
@@ -76,6 +95,10 @@ standaloneJob(
 			"Found LASTZ alignment. mlss_id = 719"
 		],
 		[
+			'WARNING',
+			"Found 1 alignments between homo_sapiens and gallus_gallus"
+		],
+		[
 			'DATAFLOW',
 			{ mlss => [719] },
 			1
@@ -90,7 +113,7 @@ standaloneJob(
 
 # Test species set with EPO aln #
 $exp_dataflow = {
-	'aln_mlss_ids' => [647, 634],
+	'aln_mlss_ids' => [647],
 	'species1_id' => '112',
 	'species2_id' => '142'
 };
@@ -100,13 +123,13 @@ standaloneJob(
 	{ # input param hash
 		'species1_id'    => '112',
 		'species2_id'    => '142',
-		'species_set_id' => '35399',
+                'aln_mlss_ids'   => ['647'],
 		'compara_db'     => $compara_db,
 	},
 	[ # list of events to test for (just 1 event in this case)
 		[
 			'DATAFLOW',
-			{ mlss => [647, 634] },
+			{ mlss => [647] },
 			1
 		],
 		[ # start event
@@ -118,3 +141,4 @@ standaloneJob(
 );
 
 done_testing();
+

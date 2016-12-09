@@ -29,7 +29,6 @@ use warnings;
 use Bio::EnsEMBL::Utils::ConfigRegistry;
 use Bio::EnsEMBL::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Compara::DBSQL::DBAdaptor;
-use Bio::EnsEMBL::Production::DBSQL::DBAdaptor;
 use Bio::EnsEMBL::Taxonomy::DBSQL::TaxonomyDBAdaptor;
 use Bio::EnsEMBL::Hive::DBSQL::DBAdaptor;
 
@@ -39,9 +38,9 @@ use Bio::EnsEMBL::Hive::DBSQL::DBAdaptor;
 # Bio::EnsEMBL::Registry->load_registry_from_url(
 #   'mysql://ensro@ens-livemirror/85');
 Bio::EnsEMBL::Registry->load_registry_from_url(
-  'mysql://ensro@ens-staging1/86');
+  'mysql://ensro@ens-staging1/87');
 Bio::EnsEMBL::Registry->load_registry_from_url(
-  'mysql://ensro@ens-staging2/86');
+  'mysql://ensro@ens-staging2/87');
 
 # # Extra core databases that live on genebuilders' servers:
 # Bio::EnsEMBL::Registry->remove_DBAdaptor('gallus_gallus', 'core'); # deregister old version
@@ -69,12 +68,12 @@ Bio::EnsEMBL::Registry->load_registry_from_url(
 
 # # Individual pipeline database for ProteinTrees:
 Bio::EnsEMBL::Compara::DBSQL::DBAdaptor->new(
-     -host => 'compara5',
+     -host => 'compara4',
      -user => 'ensadmin',
      -pass => $ENV{'ENSADMIN_PSW'},
      -port => 3306,
      -species => 'compara_ptrees',
-     -dbname => 'cc21_protein_trees_no_reuse_86',
+     -dbname => 'wa2_protein_trees_87',
 );
 
 Bio::EnsEMBL::Compara::DBSQL::DBAdaptor->new(
@@ -86,14 +85,23 @@ Bio::EnsEMBL::Compara::DBSQL::DBAdaptor->new(
      -dbname => 'mm14_protein_trees_mouse_86b',
 );
 
+Bio::EnsEMBL::Compara::DBSQL::DBAdaptor->new(
+     -host => 'compara1',
+     -user => 'ensadmin',
+     -pass => $ENV{'ENSADMIN_PSW'},
+     -port => 3306,
+     -species => 'compara_mouse_strains_homologies',
+     -dbname => 'mm14_mouse_strains_homologies_87',
+);
+
 # Individual pipeline database for ncRNAtrees:
  Bio::EnsEMBL::Compara::DBSQL::DBAdaptor->new(
-     -host => 'compara4',
+     -host => 'compara1',
      -user => 'ensadmin',
      -pass => $ENV{'ENSADMIN_PSW'},
      -port => 3306,
      -species => 'compara_nctrees',
-     -dbname => 'mp14_compara_nctrees_86',
+     -dbname => 'mp14_compara_nctrees_87',
  );
 
  Bio::EnsEMBL::Compara::DBSQL::DBAdaptor->new(
@@ -112,7 +120,7 @@ Bio::EnsEMBL::Compara::DBSQL::DBAdaptor->new(
      -pass => $ENV{'ENSADMIN_PSW'},
      -port => 3306,
      -species => 'compara_families',
-     -dbname => 'mp14_ensembl_families_86',
+     -dbname => 'cc21_ensembl_families_87',
 );
 
 # ------------------------- LASTZ DATABASES: -----------------------------------
@@ -302,7 +310,7 @@ Bio::EnsEMBL::Compara::DBSQL::DBAdaptor->new(
     -pass => $ENV{'ENSADMIN_PSW'},
     -port => 3306,
     -species => 'compara_prev',
-    -dbname => 'wa2_ensembl_compara_85',
+    -dbname => 'cc21_ensembl_compara_86',
 );
 
 # current release database on one of Compara servers:
@@ -312,7 +320,7 @@ Bio::EnsEMBL::Compara::DBSQL::DBAdaptor->new(
     -pass => $ENV{'ENSADMIN_PSW'},
     -port => 3306,
     -species => 'compara_curr',
-    -dbname => 'cc21_ensembl_compara_86',
+    -dbname => 'mp14_ensembl_compara_87',
 );
 
 # previous ancestral database on one of Compara servers:
@@ -322,7 +330,7 @@ Bio::EnsEMBL::DBSQL::DBAdaptor->new(
     -pass => $ENV{'ENSADMIN_PSW'},
     -port => 3306,
     -species => 'ancestral_prev',
-    -dbname => 'wa2_ensembl_ancestral_85',
+    -dbname => 'cc21_ensembl_ancestral_86',
 );
 
 # current ancestral database on one of Compara servers:
@@ -332,11 +340,11 @@ Bio::EnsEMBL::DBSQL::DBAdaptor->new(
     -pass => $ENV{'ENSADMIN_PSW'},
     -port => 3306,
     -species => 'ancestral_curr',
-    -dbname => 'cc21_ensembl_ancestral_86',
+    -dbname => 'mp14_ensembl_ancestral_87',
 );
 
 # ensembl production (maintained by production team):
-Bio::EnsEMBL::Production::DBSQL::DBAdaptor->new(
+Bio::EnsEMBL::DBSQL::DBAdaptor->new(
     -host => 'ens-staging',
     -user => 'ensadmin',
     -pass => $ENV{'ENSADMIN_PSW'},
@@ -352,6 +360,7 @@ Bio::EnsEMBL::Taxonomy::DBSQL::TaxonomyDBAdaptor->new(
     -user => 'ensadmin',
     -pass => $ENV{'ENSADMIN_PSW'},
     -port => 3306,
+    -group => 'taxonomy',
     -species => 'ncbi_taxonomy',
     -dbname => 'ncbi_taxonomy',
 );

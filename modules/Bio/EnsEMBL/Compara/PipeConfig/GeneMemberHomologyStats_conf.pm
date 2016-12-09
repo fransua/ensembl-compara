@@ -22,7 +22,7 @@ Bio::EnsEMBL::Compara::PipeConfig::GeneMemberHomologyStats_conf
 =head1 SYNOPSIS
 
     init_pipeline.pl Bio::EnsEMBL::Compara::PipeConfig::GeneMemberHomologyStats_conf
-    seed_pipeline.pl -url ${EHIVE_URL} -logic_name find_collection_species_set_id -input_id '{"collection" => "collection_name", "db_conn" => "mysql://ensro@comparaX/hom_db"}'
+    seed_pipeline.pl -url ${EHIVE_URL} -logic_name find_collection_species_set_id -input_id '{"collection" => "collection_name", "db_conn" => "mysql://ensro\@comparaX/hom_db"}'
 
 =head1 DESCRIPTION
 
@@ -151,7 +151,7 @@ sub pipeline_analyses {
                     'CREATE TEMPORARY TABLE temp_member_tree_counts AS
                      SELECT gene_member_id, gene_tree_root.root_id
                      FROM seq_member JOIN gene_tree_node USING (seq_member_id) JOIN gene_tree_root USING(root_id)
-                     WHERE clusterset_id = "default" AND tree_type = "tree" AND method_link_species_set_id = #method_link_species_set_id#',
+                     WHERE clusterset_id = "#collection#" AND tree_type = "tree" AND method_link_species_set_id = #method_link_species_set_id#',
                     'UPDATE gene_member_hom_stats JOIN temp_member_tree_counts USING (gene_member_id)
                      SET gene_trees = 1
                      WHERE collection = "#collection#"',

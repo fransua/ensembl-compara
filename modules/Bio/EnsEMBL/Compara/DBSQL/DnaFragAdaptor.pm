@@ -126,16 +126,14 @@ sub fetch_by_GenomeDB_and_name {
   my $dnafrag; # Returned value
   
   my $genome_db_id;
-  if ($genome_db =~ /^\d+$/) {
+  if ($genome_db and ($genome_db =~ /^\d+$/)) {
     $genome_db_id = $genome_db;
-  } elsif ($genome_db && ref $genome_db && 
-      $genome_db->isa('Bio::EnsEMBL::Compara::GenomeDB')) {
+  } else {
+    assert_ref($genome_db, 'Bio::EnsEMBL::Compara::GenomeDB', 'genome_db');
     $genome_db_id = $genome_db->dbID;
     if (!$genome_db_id) {
       throw("[$genome_db] does not have a dbID");
     }
-  } else {
-    throw("[$genome_db] must be Bio::EnsEMBL::Compara::GenomeDB\n");
   }
 
 
@@ -245,6 +243,7 @@ sub fetch_by_Slice {
 
 sub fetch_by_GenomeDB_and_synonym {
     my ($self, $genome_db, $synonym) = @_;
+
     my $slice_adaptor = $genome_db->db_adaptor->get_SliceAdaptor;
     my $slice = $slice_adaptor->fetch_by_region(undef, $synonym);
     if ( defined $slice ) {
@@ -252,7 +251,8 @@ sub fetch_by_GenomeDB_and_synonym {
         $d->{'_slice'} = $slice if $d;
         return $d;
     }
-    $synonym=~ s/chr//; # !!! REMOVE: when all species have synonyms in core DBs
+
+    # We hope that the synonym is in fact the name we used for the DnaFrag
     return $self->fetch_by_GenomeDB_and_name($genome_db, $synonym);
 }
 
@@ -522,42 +522,24 @@ sub store_if_needed {
 
 =head2 update
 
- Title   : update
- Usage   : $self->update($dnafrag)
- Function: look for this dnafrag in the database, using the genome_db_id,
-           the coordinate_system_name and the name of the
-           Bio::EnsEMBL::Compara::DnaFrag object. If there is already an
-           entry in the database for this dnafrag, it does do anything. If
-           the length is different, it updates it. If there is not any entry
-           for this, it stores it.
- Example :
- Returns : int $dnafrag->dbID
- Args    : Bio::EnsEMBL::Compara::DnaFrag object
- Status  : Stable
+  Example     : $adaptor->update();
+  Description : Updates the DnaFrag in the database, i.e. update all the columns for the given dnafrag_id
+  Returntype  : None
+  Exceptions  : None
+  Caller      : general
 
 =cut
 
-
 sub update {
-  my ($self,$dnafrag) = @_;
+    my ($self, $dnafrag) = @_;
 
-  my $current_verbose_level = verbose();
-  verbose(0);
-  my $existing_dnafrag = $self->fetch_by_GenomeDB_and_name($dnafrag->genome_db, $dnafrag->name);
-  verbose($current_verbose_level);
-
-  if (!$existing_dnafrag) {
-    return $self->store($dnafrag);
-  }
-
-  if ($existing_dnafrag->length != $dnafrag->length or $existing_dnafrag->is_reference != $dnafrag->is_reference) {
-    my $sql = "UPDATE dnafrag SET length = ?, is_reference = ? WHERE dnafrag_id = ?";
-    my $sth = $self->prepare($sql);
-    $sth->execute($dnafrag->length, $dnafrag->is_reference, $existing_dnafrag->dbID);
-  }
-  $dnafrag->dbID($existing_dnafrag->dbID);
- 
-  return $dnafrag->dbID;
+    return $self->generic_update('dnafrag',
+        {
+            'length'                => $dnafrag->length,
+            'is_reference'          => $dnafrag->is_reference,
+        }, {
+            'dnafrag_id'            => $dnafrag->dbID()
+        } );
 }
 
 1;

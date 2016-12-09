@@ -80,6 +80,7 @@ sub fetch_all_by_Gene {
   Arg [-TARGET_TAXON] (opt) string or Bio::EnsEMBL::Compara::NCBITaxon
              : The taxon to find homologues with. By default, no filter is applied.
   Example    : $homologies = $HomologyAdaptor->fetch_all_by_Member($member);
+             : $homologies = $HomologyAdaptor->fetch_all_by_Member($member, -TARGET_SPECIES=>"mus_musculus" );
   Description: fetch the homology relationships where the given member is implicated
   Returntype : an array reference of Bio::EnsEMBL::Compara::Homology objects
   Exceptions : Throws if arguments are of incorrect type, or if conflicting arguments are used.
@@ -195,23 +196,6 @@ sub _find_target_mlsss {
 
 }
 
-=head2 fetch_all_by_Member_paired_species
-
-  Description: DEPRECATED: Will be removed in e86. Use $self->fetch_all_by_Member($member, -TARGET_SPECIES => $species) instead (possibly with -METHOD_LINK_TYPE)
-
-=cut
-
-sub fetch_all_by_Member_paired_species {  ## DEPRECATED
-  my ($self, $member, $species, $method_link_types) = @_;
-
-  deprecate("fetch_all_by_Member_paired_species() is deprecated and will be removed in e86. Use fetch_all_by_Member(\$member, -TARGET_SPECIES => \$species) instead (possibly with -METHOD_LINK_TYPE)");
-
-  my $target_gdbs = $self->db->get_GenomeDBAdaptor->fetch_all_by_mixed_ref_lists(-SPECIES_LIST => [$species]);
-  my $target_mlss = $self->_find_target_mlsss($member->genome_db, $target_gdbs, $method_link_types);
-
-  return $self->fetch_all_by_Member($member, -METHOD_LINK_SPECIES_SET => $target_mlss);
-}
-
 
 =head2 fetch_by_Member_Member
 
@@ -323,33 +307,6 @@ sub fetch_all_by_tree_node_id {
   $self->bind_param_generic_fetch($tree_node_id, SQL_INTEGER);
 
   return $self->generic_fetch($constraint);
-}
-
-
-
-=head2 fetch_all_by_genome_pair
-
-  Description: DEPRECATED: Will be removed in e86. Use fetch_all_by_MethodLinkSpeciesSet() with the explicit MethodLinkSpeciesSet object that describes the homologies you want to retrieve
-
-=cut
-
-sub fetch_all_by_genome_pair {  ## DEPRECATED
-    my ($self, $genome_db_id1, $genome_db_id2) = @_;
-
-    deprecate("fetch_all_by_genome_pair() is deprecated and will be removed in e86. Use fetch_all_by_MethodLinkSpeciesSet() with the explicit MethodLinkSpeciesSet object that describes the homologies you want to retrieve");
-    my $mlssa = $self->db->get_MethodLinkSpeciesSetAdaptor;
-    my @all_mlss;
-    if ($genome_db_id1 == $genome_db_id2) {
-        push @all_mlss, $mlssa->fetch_by_method_link_type_GenomeDBs('ENSEMBL_PARALOGUES', [$genome_db_id1]);
-        push @all_mlss, $mlssa->fetch_by_method_link_type_GenomeDBs('ENSEMBL_HOMOEOLOGUES', [$genome_db_id1]);
-    } else {
-        push @all_mlss, $mlssa->fetch_by_method_link_type_GenomeDBs('ENSEMBL_ORTHOLOGUES', [$genome_db_id1, $genome_db_id2]);
-        push @all_mlss, $mlssa->fetch_by_method_link_type_GenomeDBs('ENSEMBL_PARALOGUES', [$genome_db_id1, $genome_db_id2]);
-    }
-
-    my $constraint = "h.method_link_species_set_id IN (". join (",", (map {$_ ? $_->dbID : -1} @all_mlss)) . ")";
-
-    return $self->generic_fetch($constraint);
 }
 
 
@@ -592,40 +549,29 @@ sub _columns {
 }
 
 sub _objs_from_sth {
-  my ($self, $sth) = @_;
+    my ($self, $sth) = @_;
   
-  my ($homology_id, $description, $is_tree_compliant, $goc_score, $wga_coverage, $high, $dn, $ds, $n, $s, $lnl,
-      $method_link_species_set_id, $species_tree_node_id, $gene_tree_node_id, $gene_tree_root_id);
-
-  $sth->bind_columns(\$homology_id, \$method_link_species_set_id,
-                     \$description, \$is_tree_compliant, \$goc_score, \$wga_coverage, \$high, \$dn, \$ds,
-                     \$n, \$s, \$lnl, \$species_tree_node_id, \$gene_tree_node_id, \$gene_tree_root_id);
-
-  my @homologies = ();
-  
-  while ($sth->fetch()) {
-    push @homologies, Bio::EnsEMBL::Compara::Homology->new_fast({
-            'adaptor'                       => $self,
-            'dbID'                          => $homology_id,
-            '_description'                  => $description,
-            '_is_tree_compliant'            => $is_tree_compliant,
-            '_method_link_species_set_id'   => $method_link_species_set_id,
-            '_dn'                           => $dn,
-            '_ds'                           => $ds,
-            '_n'                            => $n,
-            '_s'                            => $s,
-            '_lnl'                          => $lnl,
-            '_this_one_first'               => $self->{'_this_one_first'},
-            '_species_tree_node_id'         => $species_tree_node_id,
-            '_gene_tree_node_id'            => $gene_tree_node_id,
-            '_gene_tree_root_id'            => $gene_tree_root_id,
-            '_goc_score'                    => $goc_score,
-            '_wga_coverage'                 => $wga_coverage,
-            '_is_high_confidence'           => $high,
-       });
-  }
-  
-  return \@homologies;  
+    return $self->generic_objs_from_sth($sth, 'Bio::EnsEMBL::Compara::Homology', [
+            'dbID',
+            '_method_link_species_set_id',
+            '_description',
+            '_is_tree_compliant',
+            '_goc_score',
+            '_wga_coverage',
+            '_is_high_confidence',
+            '_dn',
+            '_ds',
+            '_n',
+            '_s',
+            '_lnl',
+            '_species_tree_node_id',
+            '_gene_tree_node_id',
+            '_gene_tree_root_id',
+        ], sub {
+            return {
+                '_this_one_first'   => $self->{'_this_one_first'},
+            };
+        });
 }
 
 #
