@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-Copyright [2016] EMBL-European Bioinformatics Institute
+Copyright [2016-2017] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -286,7 +286,21 @@ sub url {
     $self->{'url'} = $arg ;
   }
   if ($self->{'url'} && ($self->{'url'} =~ /^#base_dir#/)) {
-      $self->_detect_location_on_platform;
+      die "Need an adaptor to resolve the location of ".$self->{'url'} unless $self->adaptor;
+
+      my $data_dir = $self->adaptor->base_dir_location;
+      my $url = $self->{'url'};
+      #warn "<- $url";
+      $url =~ s/#base_dir#/$data_dir/;
+      $url =~ s/\/multi\/multi\//\/multi\//;    # temporary hack for e88 production until the database has been updated
+      #warn "-> $url";
+
+      if (-e $url) {
+          $self->{'original_url'} = $url;
+          $self->{'url'} = $url;
+      } else {
+          die "'$url' does not exist on this machine\n";
+      }
   }
 
   return $self->{'url'};
@@ -310,83 +324,10 @@ sub get_original_url {
 }
 
 
-=head2 _detect_location_on_platform
-
-  Example     : $mlss->_detect_location_on_platform();
-  Description : Replaces #base_dir# stubs with the most appropriate path for each platform.
-                Currently understand Web, user-defined path ($COMPARA_HAL_DIR) and defaults to Rest
-  Returntype  : none
-  Exceptions  : none
-  Caller      : general
-  Status      : Stable
-
-=cut
-
-sub _detect_location_on_platform {
-    my ($self) = @_;
-
-    my $data_dir;
-    if ( eval {require SiteDefs} ){
-        # web setup
-        $data_dir = $SiteDefs::DATAFILE_BASE_PATH;
-    } elsif ( defined $ENV{COMPARA_HAL_DIR} ) {
-        $data_dir = $ENV{COMPARA_HAL_DIR};
-        die ( "$data_dir (defined in \$COMPARA_HAL_DIR) does not exist" ) unless ( -e $data_dir );
-    } else {
-        # REST setup
-        $data_dir = "/mnt/shared/86"
-    }
-
-    my $url = $self->{'url'};
-    $self->{'original_url'} = $url;
-    #warn "<- $url";
-    $url =~ s/#base_dir#/$data_dir/;
-
-    #warn "-> $url";
-    $self->url($url) if ( defined $url && -e $url );
-}
-
-
-=head2 get_common_classification
-
-  Arg [1]    : -none-
-  Example    : my $common_classification = $method_link_species_set->
-                   get_common_classification();
-  Description: This method fetches the taxonimic classifications for all the
-               species included in this
-               Bio::EnsEMBL::Compara::MethodLinkSpeciesSet object and
-               returns the common part of them.
-  Returntype : array of strings
-  Exceptions : 
-  Caller     : general
-
-=cut
-
-sub get_common_classification {
+sub get_common_classification { ## DEPRECATED
   my ($self) = @_;
-  my $common_classification;
-
-  my $species_set = $self->species_set();
-
-  foreach my $this_genome_db (@{$species_set->genome_dbs}) {
-    my @classification = split(" ", $this_genome_db->taxon->classification);
-    if (!defined($common_classification)) {
-      @$common_classification = @classification;
-    } else {
-      my $new_common_classification = [];
-      for (my $i = 0; $i <@classification; $i++) {
-        for (my $j = 0; $j<@$common_classification; $j++) {
-          if ($classification[$i] eq $common_classification->[$j]) {
-            push(@$new_common_classification, splice(@$common_classification, $j, 1));
-            last;
-          }
-        }
-      }
-      $common_classification = $new_common_classification;
-    }
-  }
-
-  return $common_classification;
+  deprecate('MethodLinkSpeciesSet::get_common_classification is deprecated and will be removed in e91. Use ->species_set->get_common_classification() instead');
+  return $self->species_set->get_common_classification;
 }
 
 

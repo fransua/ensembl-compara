@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-Copyright [2016] EMBL-European Bioinformatics Institute
+Copyright [2016-2017] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -176,11 +176,10 @@ sub build_hash_models {
   # We only take the canonical transcripts.
   # Right now, this only affects a few transcripts in Drosophila, but it's safer this way.
   my $gene_member_adaptor = $self->compara_dba->get_GeneMemberAdaptor;
-  my $all_genes_Iterator = $gene_member_adaptor->fetch_all_by_source_Iterator('ENSEMBLGENE');
+  my $all_genes_Iterator = $gene_member_adaptor->generic_fetch_Iterator();
 
   while (my $gene = $all_genes_Iterator->next) {
       my $transc = $gene->get_canonical_SeqMember;
-      my $gene_member_id = $gene->gene_member_id;
       my $gene_description = $gene->description;
       my $transcript_member_id = $transc->seq_member_id;
       my $transcript_description = $transc->description;

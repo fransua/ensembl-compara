@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-Copyright [2016] EMBL-European Bioinformatics Institute
+Copyright [2016-2017] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -60,7 +60,6 @@ use warnings;
 use Bio::EnsEMBL::Compara::SeqMember;
 
 use Bio::EnsEMBL::Utils::Scalar qw(:all);
-use Bio::EnsEMBL::Utils::Argument qw(rearrange);
 use Bio::EnsEMBL::Utils::Exception qw(throw warning deprecate);
 
 use Bio::EnsEMBL::Compara::Utils::Scalar qw(:assert);
@@ -368,10 +367,10 @@ sub store {
 
 
 
-
-# NOTE: this is never called
-sub update_sequence {
+sub update_sequence {   ## DEPRECATED
   my ($self, $member) = @_;
+
+  deprecate('SeqMemberAdaptor::update_sequence() is deprecated and will be removed in e91. Contact the Compara team if you need it.');
 
   return 0 unless($member);
   unless($member->dbID) {

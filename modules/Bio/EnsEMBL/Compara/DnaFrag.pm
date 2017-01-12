@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-Copyright [2016] EMBL-European Bioinformatics Institute
+Copyright [2016-2017] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -360,6 +360,22 @@ sub coord_system_name {
   }
 
   return $self->{'coord_system_name'};
+}
+
+
+=head2 get_assembly_part
+
+ Example   : my $ap = $dnafrag->get_assembly_part();
+ Function  : Tells which part of the assembly (REF, HAP, PATCH_FIX or PATCH_NOVEL)
+             this DnaFrag is part of
+ Returns   : string
+ Status    : Stable
+
+=cut
+
+sub get_assembly_part {
+    my $self = shift;
+    return ($self->slice->assembly_exception_type() || 'unknown');
 }
 
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016] EMBL-European Bioinformatics Institute
+# Copyright [2016-2017] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,11 +24,11 @@ use Bio::Seq;
 use Bio::SeqIO;
 
 my $upstream_length = 5000;
-my $taxon_id;
+my $species_name;
 
 GetOptions(
         'upstream_length=i' => \$upstream_length,
-        'taxon_id=i' => \$taxon_id
+        'species_name=s'    => \$species_name,
 );
 
 my $reg = 'Bio::EnsEMBL::Registry';
@@ -39,8 +39,10 @@ $reg->load_registry_from_db(
 );
 
 my $ma = $reg->get_adaptor('Multi', 'Compara', 'GeneMember');
+my $ga = $reg->get_adaptor('Multi', 'Compara', 'GenomeDB');
 
-my $gene_members = $ma->fetch_all_by_source_taxon('ENSEMBLGENE',$taxon_id);
+my $gdb = $ga->fetch_by_name_assembly($species_name);
+my $gene_members = $ma->fetch_all_by_GenomeDB($gdb, 'ENSEMBLGENE');
 
 foreach my $gene_member (@{$gene_members}) {
   

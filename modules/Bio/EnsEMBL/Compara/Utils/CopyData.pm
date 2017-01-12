@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-Copyright [2016] EMBL-European Bioinformatics Institute
+Copyright [2016-2017] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -403,7 +403,7 @@ sub copy_data_in_text_mode {
         }
 
         #my $time = time();
-        my ($fh, $filename) = tempfile();
+        my ($fh, $filename) = tempfile("${table_name}.XXXXXX", TMPDIR => 1);
         print $fh join("\t", map {_escape($_)} @$first_row), "\n";
         my $nrows = 1;
         while(my $this_row = $sth->fetchrow_arrayref) {
@@ -562,7 +562,7 @@ sub copy_table {
 sub copy_table_in_text_mode {
     my ($from_dbc, $to_dbc, $table_name, $where_filter, $replace) = @_;
 
-    my $query = 'SELECT * FROM '.$table_name.($where_filter ? ' '.$where_filter : '');
+    my $query = 'SELECT * FROM '.$table_name.($where_filter ? ' WHERE '.$where_filter : '');
     return copy_data_in_text_mode($from_dbc, $to_dbc, $table_name, $query, undef, undef, undef, undef, undef, $replace);
 }
 

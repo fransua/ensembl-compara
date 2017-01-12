@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-Copyright [2016] EMBL-European Bioinformatics Institute
+Copyright [2016-2017] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -798,6 +798,7 @@ sub pipeline_analyses {
                 },
             },
             -flow_into => {
+                1 => [ 'id_map_mlss_factory' ],
                 2 => {
                     'orthology_stats' => { 'homo_mlss_id' => '#mlss_id#' },
                 },
@@ -821,6 +822,38 @@ sub pipeline_analyses {
                 'member_type'           => 'ncrna',
             },
             -hive_capacity => $self->o('ortho_stats_capacity'),
+        },
+
+        {   -logic_name => 'id_map_mlss_factory',
+            -module     => 'Bio::EnsEMBL::Compara::RunnableDB::MLSSIDFactory',
+            -parameters => {
+                'methods'   => {
+                    'ENSEMBL_ORTHOLOGUES'   => 2,
+                },
+            },
+            -flow_into => {
+                2 => [ 'mlss_id_mapping' ],
+            },
+        },
+
+        {   -logic_name => 'mlss_id_mapping',
+            -module     => 'Bio::EnsEMBL::Compara::RunnableDB::ProteinTrees::MLSSIDMapping',
+            -hive_capacity => $self->o('homology_dNdS_capacity'),
+            -flow_into => [ 'homology_id_mapping' ],
+        },
+
+        {   -logic_name => 'homology_id_mapping',
+            -module     => 'Bio::EnsEMBL::Compara::RunnableDB::ProteinTrees::HomologyIDMapping',
+            -flow_into  => {
+                -1 => [ 'homology_id_mapping_himem' ],
+            },
+            -analysis_capacity => 100,
+        },
+
+        {   -logic_name => 'homology_id_mapping_himem',
+            -module     => 'Bio::EnsEMBL::Compara::RunnableDB::ProteinTrees::HomologyIDMapping',
+            -analysis_capacity => 20,
+            -rc_name => '1Gb_job',
         },
 
         @$analyses_full_species_tree,

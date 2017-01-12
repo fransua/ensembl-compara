@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 # Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-# Copyright [2016] EMBL-European Bioinformatics Institute
+# Copyright [2016-2017] EMBL-European Bioinformatics Institute
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,9 +26,6 @@ use Bio::EnsEMBL::Test::MultiTestDB;
 use Bio::EnsEMBL::Test::TestUtils;
 
 my $multi = Bio::EnsEMBL::Test::MultiTestDB->new( "multi" );
-my $homo_sapiens = Bio::EnsEMBL::Test::MultiTestDB->new("homo_sapiens");
-my $mus_musculus = Bio::EnsEMBL::Test::MultiTestDB->new("mus_musculus");
-my $rattus_norvegicus = Bio::EnsEMBL::Test::MultiTestDB->new("rattus_norvegicus");
 
 my $compara_dba = $multi->get_DBAdaptor( "compara" );
 my $genome_db_adaptor = $compara_dba->get_GenomeDBAdaptor();
@@ -41,8 +38,7 @@ my $species;
 # 
 # Check premises
 # 
-ok(defined($multi) and defined($homo_sapiens) and defined($mus_musculus) and defined($rattus_norvegicus)
-    and defined($compara_dba));
+ok(defined($multi) and defined($compara_dba));
 
 #
 # Test new method
@@ -110,7 +106,7 @@ subtest "Test Bio::EnsEMBL::Compara::DBSQL::MethodLinkSpeciesSet::new(ALL)", sub
     $method_link_species_set->url($mlss_url_set);
     is ($method_link_species_set->url, $mlss_url_set);
     
-    my $classification = join(":", map {$_} @{$method_link_species_set->get_common_classification});
+    my $classification = join(":", map {$_} @{$method_link_species_set->species_set->get_common_classification});
     
     is ($classification, $mlss_classification);
 

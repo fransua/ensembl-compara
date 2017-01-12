@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-Copyright [2016] EMBL-European Bioinformatics Institute
+Copyright [2016-2017] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -194,6 +194,42 @@ sub toString {
     }
     $txt .= ' ' . $self->SUPER::toString();
     return $txt;
+}
+
+
+=head2 get_common_classification
+
+  Example    : my $common_classification = $species_set->get_common_classification();
+  Description: This method fetches the taxonomic classifications for all the species
+               included in this species-set and returns the common part of them.
+  Returntype : array-ref of strings
+  Caller     : general
+
+=cut
+
+sub get_common_classification {
+  my ($self) = @_;
+  my $common_classification;
+
+  foreach my $this_genome_db (@{$self->genome_dbs}) {
+    my @classification = split(" ", $this_genome_db->taxon->classification);
+    if (!defined($common_classification)) {
+      @$common_classification = @classification;
+    } else {
+      my $new_common_classification = [];
+      for (my $i = 0; $i <@classification; $i++) {
+        for (my $j = 0; $j<@$common_classification; $j++) {
+          if ($classification[$i] eq $common_classification->[$j]) {
+            push(@$new_common_classification, splice(@$common_classification, $j, 1));
+            last;
+          }
+        }
+      }
+      $common_classification = $new_common_classification;
+    }
+  }
+
+  return $common_classification;
 }
 
 

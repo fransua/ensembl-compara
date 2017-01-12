@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-Copyright [2016] EMBL-European Bioinformatics Institute
+Copyright [2016-2017] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -158,6 +158,7 @@ sub default_options {
         'fasttree_mp_exe'           => 'UNDEF',
 
     # HMM specific parameters (set to 0 or undef if not in use)
+        'hmm_library_basedir'      => '/nfs/panda/ensembl/production/mateus/compara/multi_division_hmm_lib/',
 
     # hive_capacity values for some analyses:
         'reuse_capacity'            =>   3,
@@ -280,6 +281,7 @@ sub resource_classes {
          '64Gb_job'     => {'LSF' => '-q production-rh6 -M64000 -R"select[mem>64000] rusage[mem=64000]"' },
          '512Gb_job'     => {'LSF' => '-q production-rh6 -M512000 -R"select[mem>512000] rusage[mem=512000]"' },
 
+         '8Gb_8c_job' => {'LSF' => '-q production-rh6 -n 8 -C0 -M8000 -R"select[mem>8000] rusage[mem=8000] span[hosts=1]"' },
          '16Gb_8c_job' => {'LSF' => '-q production-rh6 -n 8 -C0 -M16000 -R"select[mem>16000] rusage[mem=16000] span[hosts=1]"' },
          '32Gb_8c_job' => {'LSF' => '-q production-rh6 -n 8 -C0 -M32000 -R"select[mem>32000] rusage[mem=32000] span[hosts=1]"' },
          '16Gb_16c_job' => {'LSF' => '-q production-rh6 -n 16 -C0 -M16000 -R"select[mem>16000] rusage[mem=16000] span[hosts=1]"' },
@@ -316,14 +318,15 @@ sub tweak_analyses {
     my $analyses_by_name = shift;
 
     ## Extend this section to redefine the resource names of some analysis
+
+    ## Here we bump the resource class of some commonly MEMLIMIT
+    ## failing analyses. Are these really EG specific?
     $analyses_by_name->{'mcoffee'}->{'-rc_name'} = '8Gb_job';
     $analyses_by_name->{'mcoffee'}->{'-parameters'}{'cmd_max_runtime'} = 82800;
     $analyses_by_name->{'mcoffee_himem'}->{'-rc_name'} = '32Gb_job';
     $analyses_by_name->{'mcoffee_himem'}->{'-parameters'}{'cmd_max_runtime'} = 82800;
     $analyses_by_name->{'mafft'}->{'-rc_name'} = '8Gb_job';
     $analyses_by_name->{'mafft_himem'}->{'-rc_name'} = '32Gb_job';
-    $analyses_by_name->{'hcluster_parse_output'}->{'-rc_name'} = '500Mb_job';
-    $analyses_by_name->{'raxml_epa_longbranches_himem'}->{'-rc_name'} = '16Gb_job';
     $analyses_by_name->{'treebest'}->{'-rc_name'} = '4Gb_job';
     $analyses_by_name->{'ortho_tree_himem'}->{'-rc_name'} = '4Gb_job';
     $analyses_by_name->{'members_against_allspecies_factory'}->{'-rc_name'} = '2Gb_job';

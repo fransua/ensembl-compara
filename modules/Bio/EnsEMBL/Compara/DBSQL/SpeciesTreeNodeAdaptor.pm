@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-Copyright [2016] EMBL-European Bioinformatics Institute
+Copyright [2016-2017] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -127,7 +127,7 @@ sub store_node {
         $node->node_id( $node_id );
     }
 
-    $self->generic_update('species_tree_node',
+    my $rc = $self->generic_update('species_tree_node',
         {
             'parent_id'             => $node->parent ? $node->parent->node_id : undef,
             'root_id'               => $node->root->node_id,
@@ -140,6 +140,9 @@ sub store_node {
         }, {
             'node_id'               => $node->node_id,
         } );
+    if ($rc == 0) {
+        die "Could not update the newly-created species_tree_node row node_id=".$node->node_id.". Please investigate\n";
+    }
 
     return $node->node_id;
 }

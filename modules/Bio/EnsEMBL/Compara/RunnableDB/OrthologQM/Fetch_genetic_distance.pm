@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-Copyright [2016] EMBL-European Bioinformatics Institute
+Copyright [2016-2017] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -118,7 +118,8 @@ sub _get_genetic_dist {
     my $lca_node = $self->param('species_tree')->Bio::EnsEMBL::Compara::NestedSet::find_first_shared_ancestor_from_leaves( [@species_tree_node_list] );
 
     my $genetic_dist =$lca_node->taxon->get_value_for_tag('ensembl timetree mya');
-    print "¢¢¢¢∞∞∞¢¢#∞∞##§#§#§§##§#∞##  $genetic_dist \n\n" if ( $self->debug >3 );
+    $genetic_dist = $genetic_dist ? $genetic_dist : 101; 
+    print "\n\n  GENETIC DISTANCE :  $genetic_dist \n\n" if ( $self->debug >3 );
     return $genetic_dist;
 } ## end sub _get_genetic_dist
 

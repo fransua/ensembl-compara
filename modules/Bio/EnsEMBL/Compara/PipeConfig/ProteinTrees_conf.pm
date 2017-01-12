@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-Copyright [2016] EMBL-European Bioinformatics Institute
+Copyright [2016-2017] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -93,7 +93,9 @@ sub default_options {
         #'rel_suffix'            => 'b',
 
         # names of species we don't want to reuse this time
-        'do_not_reuse_list'     => [ ],
+        'do_not_reuse_list'     => ['monodelphis_domestica', 'oreochromis_niloticus', 'ornithorhynchus_anatinus', 'lepisosteus_oculatus', 'anolis_carolinensis',
+        'astyanax_mexicanus', 'ficedula_albicollis' ,'canis_familiaris', 'dasypus_novemcinctus','mustela_putorius_furo', 'Ovis_aries', 'Papio_anubis', 'rattus_norvegicus',
+         ],
 
         # where to find the list of Compara methods. Unlikely to be changed
         'method_link_dump_file' => $self->o('ensembl_cvs_root_dir').'/ensembl-compara/sql/method_link.txt',
@@ -360,6 +362,8 @@ sub default_options {
         'goc_taxlevels'                 => [],
         'goc_threshold'                 => undef,
         'reuse_goc'                     => undef,
+        'calculate_goc_distribution'    => 1,
+        'do_homology_id_mapping'                 => 0,
         # affects 'group_genomes_under_taxa'
 
     };
@@ -387,6 +391,7 @@ sub resource_classes {
          '64Gb_job'     => {'LSF' => '-C0 -M64000 -R"select[mem>64000] rusage[mem=64000]"' },
          '512Gb_job'     => {'LSF' => '-C0 -M512000 -R"select[mem>512000] rusage[mem=512000]"' },
 
+         '8Gb_8c_job'  => {'LSF' => '-n 8 -C0 -M8000  -R"select[mem>8000]  rusage[mem=8000]  span[hosts=1]"' },
          '16Gb_8c_job' => {'LSF' => '-n 8 -C0 -M16000 -R"select[mem>16000] rusage[mem=16000] span[hosts=1]"' },
          '32Gb_8c_job' => {'LSF' => '-n 8 -C0 -M32000 -R"select[mem>32000] rusage[mem=32000] span[hosts=1]"' },
 
@@ -488,6 +493,8 @@ sub pipeline_wide_parameters {  # these parameter values are visible to all anal
         'reuse_level'       => $self->o('reuse_level'),
         'goc_threshold'                 => $self->o('goc_threshold'),
         'reuse_goc'                     => $self->o('reuse_goc'),
+        'calculate_goc_distribution'    => $self->o('calculate_goc_distribution'),
+        'do_homology_id_mapping'        => $self->o('do_homology_id_mapping'),
         'binary_species_tree_input_file'   => $self->o('binary_species_tree_input_file'),
         'all_blast_params'          => $self->o('all_blast_params'),
 
@@ -952,7 +959,7 @@ sub core_pipeline_analyses {
                             'inputquery' => 'SELECT s.* FROM sequence s JOIN seq_member USING (sequence_id) WHERE sequence_id<='.$self->o('protein_members_range').' AND genome_db_id = #genome_db_id#',
             },
             -hive_capacity => $self->o('reuse_capacity'),
-            -rc_name => '500Mb_job',
+            -rc_name => '1Gb_job',
             -flow_into => {
                 2 => [ '?table_name=sequence' ],
                 1 => [ 'seq_member_table_reuse' ],
@@ -1144,7 +1151,7 @@ sub core_pipeline_analyses {
                 'exclude_gene_analysis'         => $self->o('exclude_gene_analysis'),
             },
             -hive_capacity => $self->o('loadmembers_capacity'),
-            -rc_name => '2Gb_job',
+            -rc_name => '4Gb_job',
             -flow_into => [ 'hc_members_per_genome' ],
         },
 
@@ -1735,6 +1742,7 @@ sub core_pipeline_analyses {
             -flow_into  => {
                 2 => 'cluster_tagging',
             },
+            -rc_name    => '1Gb_job',
         },
 
 
@@ -1752,6 +1760,7 @@ sub core_pipeline_analyses {
                 ),
                 'A->1' => [ 'hc_global_tree_set' ],
             },
+            -rc_name    => '1Gb_job',
         },
 
         {   -logic_name => 'alignment_entry_point',
@@ -3246,9 +3255,9 @@ sub core_pipeline_analyses {
             -module     => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
             -flow_into  => {
                 '1->A'  => WHEN(
-                    '((#reuse_goc#) and (#prev_rel_db#))' => 'id_map_mlss_factory',
+                    '((#do_homology_id_mapping#) and (#reuse_db#))' => 'id_map_mlss_factory',
                 ),
-                'A->1' => ['goc_group_genomes_under_taxa'],
+                'A->1' => ['goc_backbone'],
                 '1'    => ['group_genomes_under_taxa', 'get_species_set', 'homology_stats_factory'],
             },
         },
@@ -3272,18 +3281,14 @@ sub core_pipeline_analyses {
                 },
             },
             -flow_into => {
-                2 => {
-                    'id_map_homology_factory' => { 'homo_mlss_id' => '#mlss_id#' },
-                },
+                2 => [ 'mlss_id_mapping' ],
             },
         },
 
-        {   -logic_name => 'id_map_homology_factory',
-            -module     => 'Bio::EnsEMBL::Compara::RunnableDB::ProteinTrees::HomologyGroupingFactory',
+        {   -logic_name => 'mlss_id_mapping',
+            -module     => 'Bio::EnsEMBL::Compara::RunnableDB::ProteinTrees::MLSSIDMapping',
             -hive_capacity => $self->o('homology_dNdS_capacity'),
-            -flow_into => {
-                '3'    => [ 'homology_id_mapping' ],
-            },
+            -flow_into => { 'homology_id_mapping' => INPUT_PLUS(), },
         },
 
         {   -logic_name => 'mlss_factory',
@@ -3339,6 +3344,36 @@ sub core_pipeline_analyses {
             -module     => 'Bio::EnsEMBL::Compara::RunnableDB::ProteinTrees::Threshold_on_dS',
             -hive_capacity => $self->o('homology_dNdS_capacity'),
         },
+
+        {   -logic_name => 'goc_backbone',
+            -module     => 'Bio::EnsEMBL::Hive::RunnableDB::Dummy',
+            -flow_into  => {
+                '1->A' => WHEN( '#reuse_goc#' => ['copy_prev_goc_score_table','copy_prev_gene_member_table']),
+                'A->1' => ['goc_group_genomes_under_taxa'],
+            },
+        },
+
+        {   -logic_name => 'copy_prev_goc_score_table',
+            -module     => 'Bio::EnsEMBL::Hive::RunnableDB::MySQLTransfer',
+            -parameters => {
+                'src_db_conn'   => '#reuse_db#',
+                'mode'          => 'overwrite',
+                'table'         => 'ortholog_goc_metric',
+                'renamed_table' => 'prev_rel_goc_metric',
+            },
+        },
+        
+        {   -logic_name => 'copy_prev_gene_member_table',
+            -module     => 'Bio::EnsEMBL::Hive::RunnableDB::MySQLTransfer',
+            -parameters => {
+                'src_db_conn'   => '#reuse_db#',
+                'mode'          => 'overwrite',
+                'table'         => 'gene_member',
+                'renamed_table' => 'prev_rel_gene_member'
+            },
+        },
+
+
 
         {   -logic_name => 'goc_group_genomes_under_taxa',
             -module     => 'Bio::EnsEMBL::Compara::RunnableDB::ProteinTrees::GroupGenomesUnderTaxa',

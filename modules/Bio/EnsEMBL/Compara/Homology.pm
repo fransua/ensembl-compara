@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-Copyright [2016] EMBL-European Bioinformatics Institute
+Copyright [2016-2017] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -94,8 +94,8 @@ our %PLAIN_TEXT_DESCRIPTIONS = (
       homoeolog_one2many        => '1-to-many homoeologues',
       homoeolog_many2many       => 'many-to-many homoeologues',
 
-      within_species_paralog    => 'Paralogues (same species)',
-      other_paralog             => 'Ancient paralogues (same species)',
+      within_species_paralog    => 'Paralogues',
+      other_paralog             => 'Ancient paralogues',
       between_species_paralog   => 'Paralogues (different species)',
 
       gene_split                => 'Split genes',

@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-Copyright [2016] EMBL-European Bioinformatics Institute
+Copyright [2016-2017] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -139,50 +139,18 @@ sub fetch_all {
 }
 
 
-=head2 fetch_all_Iterator
-
-  Arg        : (optional) int $cache_size
-  Example    : my $memberIter = $memberAdaptor->fetch_all_Iterator();
-               while (my $member = $memberIter->next) {
-                  #do something with $member
-               }
-  Description: Returns an iterator over all the members in the database
-               This is safer than fetch_all for large databases.
-  Returntype : Bio::EnsEMBL::Utils::Iterator
-  Exceptions : 
-  Caller     : 
-  Status     : Experimental
-
-=cut
-
-sub fetch_all_Iterator {
-    my ($self, $cache_size) = @_;
-    return $self->generic_fetch_Iterator($cache_size,"");
+sub fetch_all_Iterator {    ## DEPRECATED
+    my ($self, $cache_size) = @_;   # $cache_size is now ignored
+    deprecate('MemberAdaptor::fetch_all_Iterator() is deprecated and will be removed in e91. Contact the Compara team if you need it.');
+    return $self->generic_fetch_Iterator();
 }
 
 
-=head2 fetch_all_by_source_Iterator
-
-  Arg[1]     : string $source_name
-  Arg[2]     : (optional) int $cache_size
-  Example    : my $memberIter = $memberAdaptor->fetch_all_by_source_Iterator("ENSEMBLGENE");
-               while (my $member = $memberIter->next) {
-                  #do something with $member
-               }
-  Description: Returns an iterator over all the members corresponding
-               to a source_name in the database.
-               This is safer than fetch_all_by_source for large databases.
-  Returntype : Bio::EnsEMBL::Utils::Iterator
-  Exceptions : 
-  Caller     : 
-  Status     : Experimental
-
-=cut
-
-sub fetch_all_by_source_Iterator {
-    my ($self, $source_name, $cache_size) = @_;
+sub fetch_all_by_source_Iterator {  ## DEPRECATED
+    my ($self, $source_name, $cache_size) = @_;     # $cache_size is now ignored
+    deprecate('MemberAdaptor::fetch_all_by_source_Iterator() is deprecated and will be removed in e91. Contact the Compara team if you need it.');
     throw("source_name arg is required\n") unless ($source_name);
-    return $self->generic_fetch_Iterator($cache_size, "source_name = '$source_name'");
+    return $self->generic_fetch_Iterator("source_name = '$source_name'");
 }
 
 
@@ -216,22 +184,10 @@ sub fetch_all_by_source {
 }
 
 
-=head2 fetch_all_by_source_taxon
-
-  Arg [1]    : string $source_name
-  Arg [2]    : int $taxon_id
-  Example    : my $members = $ma->fetch_all_by_source_taxon(
-                   "Uniprot/SWISSPROT", 9606);
-  Description: Fetches the member corresponding to a source_name and a taxon_id.
-  Returntype : listref of Bio::EnsEMBL::Compara::Member objects
-  Exceptions : throws if $source_name or $taxon_id is undef
-  Caller     : 
-
-=cut
-
-sub fetch_all_by_source_taxon {
+sub fetch_all_by_source_taxon {     ## DEPRECATED
   my ($self,$source_name,$taxon_id) = @_;
 
+  deprecate('fetch_all_by_source_taxon() is deprecated and will be removed in e91. Please use fetch_all_by_GenomeDB() instead.');
   throw("source_name and taxon_id args are required") 
     unless($source_name && $taxon_id);
 
@@ -270,11 +226,8 @@ sub fetch_all_by_GenomeDB {
 }
 
 
-#TODO fetch_all_by_Slice($slice)
-#TODO fetch_all_by_Locus($locus, -expand_both, -expand_5, -expand_3, -limit
-
-sub _fetch_all_by_dnafrag_id_start_end_strand_limit {
-  my ($self,$dnafrag_id,$dnafrag_start,$dnafrag_end,$dnafrag_strand,$limit) = @_;
+sub _count_all_by_dnafrag_id_start_end_strand {
+  my ($self,$dnafrag_id,$dnafrag_start,$dnafrag_end,$dnafrag_strand) = @_;
 
   $self->throw("all args are required")
       unless($dnafrag_start && $dnafrag_end && $dnafrag_strand && defined ($dnafrag_id));
@@ -287,35 +240,108 @@ sub _fetch_all_by_dnafrag_id_start_end_strand_limit {
   $self->bind_param_generic_fetch($dnafrag_end, SQL_INTEGER);
   $self->bind_param_generic_fetch($dnafrag_strand, SQL_INTEGER);
 
-  return $self->generic_fetch($constraint, undef, defined $limit ? "LIMIT $limit" : "");
+  return $self->generic_count($constraint);
 }
 
 
-=head2 fetch_all_by_dnafrag_id_start_end
+=head2 fetch_all_by_Slice
 
-  Arg [1]    : dnafrag db ID
-  Arg [2]    : int Start - the start position of the region you want
-  Arg [3]    : int End - the end position of the region you want
-  Example    : my $genemembers_arrayref = $memberDBA->fetch_all_by_dnafrag_id_start_end($dnafragID, $start, $end);
-  Description: Returns a arrayref of the list of gene members spanning the given region on the given dnafrag
-  Returntype : Array ref
-  Exceptions : undefined arguments
+  Arg[1]      : Bio::EnsEMBL::Slice $slice
+  Arguments   : See L<fetch_all_by_Locus> for a description of the optional arguments
+  Example     : $gene_member_adaptor->fetch_all_by_Slice($slice, -FULLY_WITHIN => 1);
+  Description : Fetches all the members for the given L<Bio::EnsEMBL::Slice>. Use the parameter
+                FULLY_WITHIN to return the members *overlapping* or *contained* in this slice.
+  Returntype  : Arrayref of Bio::EnsEMBL::Compara::Member (or derived classes)
+  Exceptions  : none
+  Caller      : general
+  Status      : Stable
 
 =cut
-sub fetch_all_by_dnafrag_id_start_end {
 
-  my ($self,$dnafrag_id,$dnafrag_start,$dnafrag_end) = @_;
-    $self->throw("all args are required")
-      unless($dnafrag_start && $dnafrag_end && defined ($dnafrag_id));
-
-  my $constraint = '(m.dnafrag_id = ?) AND (m.dnafrag_start BETWEEN ? AND ?) AND (m.dnafrag_end BETWEEN ? AND ?)';
-  $self->bind_param_generic_fetch($dnafrag_id, SQL_INTEGER);
-  $self->bind_param_generic_fetch($dnafrag_start, SQL_INTEGER);
-  $self->bind_param_generic_fetch($dnafrag_end, SQL_INTEGER);
-  $self->bind_param_generic_fetch($dnafrag_start, SQL_INTEGER);
-  $self->bind_param_generic_fetch($dnafrag_end, SQL_INTEGER);
-  return $self->generic_fetch($constraint);
+sub fetch_all_by_Slice {
+    my $self = shift;
+    my $slice = shift;
+    my $dnafrag = $self->db->get_DnaFragAdaptor->fetch_by_Slice($slice);
+    throw "Could not find find a DnaFrag for ".$slice->name unless $dnafrag;
+    my $locus = Bio::EnsEMBL::Compara::Locus->new_fast( {
+            'dnafrag_id'        => $dnafrag->dbID,
+            'dnafrag_start'     => $slice->start,
+            'dnafrag_end'       => $slice->end,
+            'dnafrag_strand'    => $slice->strand,
+        });
+    return $self->fetch_all_by_Locus($locus, @_);
 }
+
+
+=head2 fetch_all_by_Locus
+
+  Arg[1]      : Bio::EnsEMBL::Compara::Locus $locus. An instance of a derived class like GenomicAlign works
+  Arg [-FULLY_WITHIN] (opt) Boolean
+              : By default, the method returns all the members that overlap the Locus. Set this
+                parameter to True to return the members that are fully inside the Locus.
+  Arg [-EXPAND_5] (opt) Integer (default: 0)
+              : Number of base-pairs to extend the given Locus on its 5' end (which is its dnafrag *end* when on the negative strand)
+  Arg [-EXPAND_3] (opt) Integer (default: 0)
+              : Number of base-pairs to extend the given Locus on its 3' end (which is its dnafrag *start* when on the negative strand)
+  Example     : $gene_member_adaptor->fetch_all_by_Locus($genomic_align);
+  Description : Fetches all the members for the given L<Bio::EnsEMBL::Compara::Locus> which is the base
+                class for many objects including L<Bio::EnsEMBL::Compara::GenomicAlign>, L<Bio::EnsEMBL::Compara::DnaFragRegion>
+                and L<Bio::EnsEMBL::Compara::Member>
+  Returntype  : Arrayref of Bio::EnsEMBL::Compara::Member (or derived classes)
+  Exceptions  : none
+  Caller      : general
+  Status      : Stable
+
+=cut
+
+sub fetch_all_by_Locus {
+    my ($self, $locus, @args) = @_;
+    assert_ref($locus, 'Bio::EnsEMBL::Compara::Locus', 'locus');
+
+    my ($fully_within, $expand_5, $expand_3) = rearrange([qw(FULLY_WITHIN EXPAND_5 EXPAND_3)], @args);
+
+    my $start = $locus->dnafrag_start - ($locus->dnafrag_strand > 0 ? $expand_5 : $expand_3);
+    my $end   = $locus->dnafrag_end   + ($locus->dnafrag_strand > 0 ? $expand_3 : $expand_5);
+
+    if ($fully_within) {
+        my $constraint = '(m.dnafrag_id = ?) AND (m.dnafrag_start BETWEEN ? AND ?) AND (m.dnafrag_end BETWEEN ? AND ?)';
+        $self->bind_param_generic_fetch($locus->dnafrag_id, SQL_INTEGER);
+        $self->bind_param_generic_fetch($start, SQL_INTEGER);
+        $self->bind_param_generic_fetch($end, SQL_INTEGER);
+        $self->bind_param_generic_fetch($start, SQL_INTEGER);
+        $self->bind_param_generic_fetch($end, SQL_INTEGER);
+        return $self->generic_fetch($constraint);
+    } else {
+        my $constraint = '(m.dnafrag_id = ?) AND (m.dnafrag_start <= ?) AND (m.dnafrag_end >= ?)';
+        $self->bind_param_generic_fetch($locus->dnafrag_id, SQL_INTEGER);
+        $self->bind_param_generic_fetch($end, SQL_INTEGER);
+        $self->bind_param_generic_fetch($start, SQL_INTEGER);
+        return $self->generic_fetch($constraint);
+    }
+}
+
+
+=head2 fetch_all_by_DnaFrag
+
+  Arg[1]      : Bio::EnsEMBL::Compara::DnaFrag $dnafrag
+  Example     : $gene_member_adaptor->fetch_all_by_DnaFrag($chr3_dnafrag);
+  Description : Fetches all the members that are on the given DnaFrag
+  Returntype  : Arrayref of Bio::EnsEMBL::Compara::Member (or derived classes)
+  Exceptions  : none
+  Caller      : general
+  Status      : Stable
+
+=cut
+
+sub fetch_all_by_DnaFrag {
+    my ($self, $dnafrag) = @_;
+    assert_ref($dnafrag, 'Bio::EnsEMBL::Compara::DnaFrag', 'dnafrag');
+
+    my $constraint = '(m.dnafrag_id = ?)';
+    $self->bind_param_generic_fetch($dnafrag->dbID, SQL_INTEGER);
+    return $self->generic_fetch($constraint);
+}
+
 
 =head2 get_source_taxon_count
 
@@ -334,14 +360,9 @@ sub get_source_taxon_count {
   throw("source_name and taxon_id args are required") 
     unless($source_name && $taxon_id);
 
-    my @tabs = $self->_tables;
-  my $sth = $self->prepare
-    ("SELECT COUNT(*) FROM $tabs[0][0] WHERE source_name=? AND taxon_id=?");
-  $sth->execute($source_name, $taxon_id);
-  my ($count) = $sth->fetchrow_array();
-  $sth->finish;
-
-  return $count;
+    $self->bind_param_generic_fetch($source_name, SQL_VARCHAR);
+    $self->bind_param_generic_fetch($taxon_id, SQL_INTEGER);
+    return $self->generic_count('source_name=? AND taxon_id=?');
 }
 
 
@@ -360,7 +381,7 @@ sub get_source_taxon_count {
 
 sub fetch_all_by_MemberSet {
     my ($self, $set) = @_;
-    assert_ref($set, 'Bio::EnsEMBL::Compara::MemberSet');
+    assert_ref($set, 'Bio::EnsEMBL::Compara::MemberSet', 'set');
     if (UNIVERSAL::isa($set, 'Bio::EnsEMBL::Compara::AlignedMemberSet')) {
         return $self->db->get_AlignedMemberAdaptor->fetch_all_by_AlignedMemberSet($set);
     } else {

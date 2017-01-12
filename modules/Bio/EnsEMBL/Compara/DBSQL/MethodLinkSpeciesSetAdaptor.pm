@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-Copyright [2016] EMBL-European Bioinformatics Institute
+Copyright [2016-2017] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -98,6 +98,57 @@ use Bio::EnsEMBL::Utils::SqlHelper;
 use Bio::EnsEMBL::Utils::Scalar qw(:assert);
 
 use base ('Bio::EnsEMBL::Compara::DBSQL::BaseReleaseHistoryAdaptor', 'Bio::EnsEMBL::Compara::DBSQL::TagAdaptor');
+
+
+###########################
+# Automatic URL expansion #
+###########################
+
+=head2 base_dir_location
+
+  Example     : $mlss_adaptor->base_dir_location();
+  Description : Getter/setter for the default location of the file URLs.
+                This is used to resolve URLs of the form #base_dir#/XXX/YYY
+  Returntype  : String
+  Exceptions  : none
+
+=cut
+
+sub base_dir_location {
+    my $self = shift;
+    if (@_) {
+        $self->{'_base_dir_location'} = shift;
+    } elsif (!$self->{'_base_dir_location'}) {
+        $self->_detect_location_on_platform;
+    }
+    return $self->{'_base_dir_location'};
+}
+
+
+=head2 _detect_location_on_platform
+
+  Example     : $mlss_adaptor->_detect_location_on_platform();
+  Description : Replaces #base_dir# stubs with the most appropriate path for each platform.
+                Currently understand Web (via SiteDefs) and user-defined path ($COMPARA_HAL_DIR)
+  Returntype  : none
+  Exceptions  : none
+
+=cut
+
+sub _detect_location_on_platform {
+    my ($self) = @_;
+
+    my $data_dir;
+    if ( eval {require SiteDefs} ){
+        # web setup
+        $data_dir = $SiteDefs::DATAFILE_BASE_PATH . '/multi/';
+    } elsif ( defined $ENV{COMPARA_HAL_DIR} ) {
+        $data_dir = $ENV{COMPARA_HAL_DIR};
+        die ( "$data_dir (defined in \$COMPARA_HAL_DIR) does not exist" ) unless ( -e $data_dir );
+    } else {
+        die "Cannot establish a default location for files\n";
+    }
+}
 
 
 
@@ -244,7 +295,7 @@ sub _objs_from_sth {
     my $method_hash = $self->db->get_MethodAdaptor()->_id_cache;
     my $species_set_hash = $self->db->get_SpeciesSetAdaptor()->_id_cache;
 
-    return $self->generic_objs_from_sth($sth, 'Bio::EnsEMBL::Compara::MethodLinkSpeciesSet', [
+    my $mlsss = $self->generic_objs_from_sth($sth, 'Bio::EnsEMBL::Compara::MethodLinkSpeciesSet', [
             'dbID',
             undef,
             undef,
@@ -271,6 +322,7 @@ sub _objs_from_sth {
             }
 
         });
+    return [grep {$_->{method} && $_->{species_set}} @$mlsss];
 }
 
 sub _tables {

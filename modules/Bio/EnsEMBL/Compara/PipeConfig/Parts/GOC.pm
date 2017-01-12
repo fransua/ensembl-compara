@@ -1,7 +1,7 @@
 =head1 LICENSE
 
 Copyright [1999-2015] Wellcome Trust Sanger Institute and the EMBL-European Bioinformatics Institute
-Copyright [2016] EMBL-European Bioinformatics Institute
+Copyright [2016-2017] EMBL-European Bioinformatics Institute
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -49,6 +49,7 @@ use Bio::EnsEMBL::Hive::PipeConfig::HiveGeneric_conf;
 sub pipeline_analyses_goc {
     my ($self) = @_;
     return [
+
         {   -logic_name => 'get_orthologs',
             -module     => 'Bio::EnsEMBL::Compara::RunnableDB::OrthologQM::OrthologFactory',
             -flow_into => {
@@ -57,6 +58,7 @@ sub pipeline_analyses_goc {
             },
             -rc_name => '2Gb_job',
             -hive_capacity  =>  $self->o('goc_capacity'),
+            -analysis_capacity => 50,
         },
 
         {   -logic_name =>  'create_ordered_chr_based_job_arrays',
@@ -65,7 +67,8 @@ sub pipeline_analyses_goc {
                 2   =>  ['check_ortholog_neighbors'],
             },
             -rc_name => '2Gb_job',
-            -hive_capacity  => 300,
+            -hive_capacity  => 100,
+            -analysis_capacity => 50,
             
         },
 
@@ -77,6 +80,7 @@ sub pipeline_analyses_goc {
                3 => [ '?table_name=ortholog_goc_metric' ],
             },
             -hive_capacity  => 50,
+            -analysis_capacity => 90,
             -batch_size     => 50,
         },
 
@@ -95,11 +99,14 @@ sub pipeline_analyses_goc {
             -logic_name => 'get_max_orth_percent',
             -module     => 'Bio::EnsEMBL::Compara::RunnableDB::OrthologQM::Ortholog_max_score',
             -flow_into => {
-                1 => WHEN( 'defined #goc_threshold#' => ['get_perc_above_threshold' ] ,
-                    ELSE ['get_genetic_distance' ] ),
+                1 => WHEN( 
+                    '#goc_threshold# and #calculate_goc_distribution#' => ['get_perc_above_threshold' ] ,
+			   '!(#goc_threshold#) and #calculate_goc_distribution#' => ['get_genetic_distance' ], 
+		    ),
             },
             -rc_name => '16Gb_job',
             -hive_capacity  => 50,
+            -analysis_capacity => 50,
         },
 
         {
