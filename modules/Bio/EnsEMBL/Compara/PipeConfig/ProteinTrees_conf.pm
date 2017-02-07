@@ -213,8 +213,6 @@ sub default_options {
         #'noisy_exe'                 => '/software/ensembl/compara/noisy/noisy-1.5.12',
         #'prottest_jar'              => '/software/ensembl/compara/prottest/prottest-3.4.jar',
         #'treebest_exe'              => '/software/ensembl/compara/treebest',
-        #'raxml_exe'                 => '/software/ensembl/compara/raxml/raxmlHPC-SSE3-8.1.3',
-        #'raxml_pthreads_exe'        => '/software/ensembl/compara/raxml/raxmlHPC-PTHREADS-SSE3-8.1.3',
         #'examl_exe_avx'             => 'UNDEF',
         #'examl_exe_sse3'            => 'UNDEF',
         #'parse_examl_exe'           => 'UNDEF',
@@ -522,13 +520,15 @@ sub core_pipeline_analyses {
             -max_retry_count    => 1,
     );
     my %raxml_parsimony_parameters = (
-        'raxml_exe'                 => $self->o('raxml_pthreads_exe'),
+        'raxml_pthread_exe_sse3'    => $self->o('raxml_pthread_exe_sse3'),
+        'raxml_pthread_exe_avx'     => $self->o('raxml_pthread_exe_avx'),
+        'raxml_exe_sse3'            => $self->o('raxml_exe_sse3'),
+        'raxml_exe_avx'             => $self->o('raxml_exe_avx'),
         'treebest_exe'              => $self->o('treebest_exe'),
         'input_clusterset_id'       => 'default',
         'output_clusterset_id'      => 'raxml_parsimony',
     );
     my %examl_parameters = (
-        'raxml_exe'             => $self->o('raxml_pthreads_exe'),
         'examl_exe_sse3'        => $self->o('examl_exe_sse3'),
         'examl_exe_avx'         => $self->o('examl_exe_avx'),
         'parse_examl_exe'       => $self->o('parse_examl_exe'),
@@ -537,20 +537,29 @@ sub core_pipeline_analyses {
         'input_clusterset_id'   => 'raxml_parsimony',
     );
     my %raxml_parameters = (
-        'raxml_exe'                 => $self->o('raxml_pthreads_exe'),
+        'raxml_pthread_exe_sse3'    => $self->o('raxml_pthread_exe_sse3'),
+        'raxml_pthread_exe_avx'     => $self->o('raxml_pthread_exe_avx'),
+        'raxml_exe_sse3'            => $self->o('raxml_exe_sse3'),
+        'raxml_exe_avx'             => $self->o('raxml_exe_avx'),
         'treebest_exe'              => $self->o('treebest_exe'),
         'output_clusterset_id'      => $self->o('use_notung') ? 'raxml' : 'default',
         'input_clusterset_id'       => 'default',
     );
     my %raxml_update_parameters = (
-        'raxml_exe'                 => $self->o('raxml_exe'),
+        'raxml_pthread_exe_sse3'    => $self->o('raxml_pthread_exe_sse3'),
+        'raxml_pthread_exe_avx'     => $self->o('raxml_pthread_exe_avx'),
+        'raxml_exe_sse3'            => $self->o('raxml_exe_sse3'),
+        'raxml_exe_avx'             => $self->o('raxml_exe_avx'),
         'treebest_exe'              => $self->o('treebest_exe'),
 		'input_clusterset_id'	    => 'copy',
         'output_clusterset_id'      => 'raxml_update',
     );
 
     my %raxml_bl_parameters = (
-        'raxml_exe'                 => $self->o('raxml_exe'),
+        'raxml_pthread_exe_sse3'    => $self->o('raxml_pthread_exe_sse3'),
+        'raxml_pthread_exe_avx'     => $self->o('raxml_pthread_exe_avx'),
+        'raxml_exe_sse3'            => $self->o('raxml_exe_sse3'),
+        'raxml_exe_avx'             => $self->o('raxml_exe_avx'),
         'treebest_exe'              => $self->o('treebest_exe'),
         'input_clusterset_id'       => 'notung',
         'output_clusterset_id'      => 'raxml_bl',
@@ -2330,7 +2339,7 @@ sub core_pipeline_analyses {
             -parameters => {
                 %raxml_parsimony_parameters,
                 'escape_branch'             => -1,
-                'extra_raxml_args'          => '-T 2',
+                'raxml_number_of_cores'     => 2,
             },
             -hive_capacity  => $self->o('raxml_capacity'),
             -rc_name        => '1Gb_job',
@@ -2343,7 +2352,7 @@ sub core_pipeline_analyses {
             -module     => 'Bio::EnsEMBL::Compara::RunnableDB::ProteinTrees::RAxML_parsimony',
             -parameters => {
                 %raxml_parsimony_parameters,
-                'extra_raxml_args'          => '-T 2',
+                'raxml_number_of_cores'     => 2,
             },
             -hive_capacity  => $self->o('raxml_capacity'),
             -rc_name        => '4Gb_job',
@@ -2353,7 +2362,7 @@ sub core_pipeline_analyses {
             -module     => 'Bio::EnsEMBL::Compara::RunnableDB::ProteinTrees::RAxML_parsimony',
             -parameters => {
                 %raxml_parsimony_parameters,
-                'extra_raxml_args'          => '-T 8',
+                'raxml_number_of_cores'     => 8,
                 'escape_branch'             => -1,
             },
             -hive_capacity  => $self->o('raxml_capacity'),
@@ -2367,7 +2376,7 @@ sub core_pipeline_analyses {
             -module     => 'Bio::EnsEMBL::Compara::RunnableDB::ProteinTrees::RAxML_parsimony',
             -parameters => {
                 %raxml_parsimony_parameters,
-                'extra_raxml_args'          => '-T 8',
+                'raxml_number_of_cores'     => 8,
             },
             -hive_capacity  => $self->o('raxml_capacity'),
             -rc_name 		=> '32Gb_8c_job',
@@ -2377,7 +2386,7 @@ sub core_pipeline_analyses {
             -module     => 'Bio::EnsEMBL::Compara::RunnableDB::ProteinTrees::RAxML_parsimony',
             -parameters => {
                 %raxml_parsimony_parameters,
-                'extra_raxml_args'          => '-T 16',
+                'raxml_number_of_cores'     => 16,
                 'escape_branch'             => -1,
             },
             -hive_capacity  => $self->o('raxml_capacity'),
@@ -2391,7 +2400,7 @@ sub core_pipeline_analyses {
             -module     => 'Bio::EnsEMBL::Compara::RunnableDB::ProteinTrees::RAxML_parsimony',
             -parameters => {
                 %raxml_parsimony_parameters,
-                'extra_raxml_args'          => '-T 16',
+                'raxml_number_of_cores'     => 16,
             },
             -hive_capacity  => $self->o('raxml_capacity'),
             -rc_name 		=> '32Gb_16c_job',
@@ -2401,7 +2410,7 @@ sub core_pipeline_analyses {
             -module     => 'Bio::EnsEMBL::Compara::RunnableDB::ProteinTrees::RAxML_parsimony',
             -parameters => {
                 %raxml_parsimony_parameters,
-                'extra_raxml_args'          => '-T 32',
+                'raxml_number_of_cores'     => 32,
                 'escape_branch'             => -1,
             },
             -hive_capacity  => $self->o('raxml_capacity'),
@@ -2415,7 +2424,7 @@ sub core_pipeline_analyses {
             -module     => 'Bio::EnsEMBL::Compara::RunnableDB::ProteinTrees::RAxML_parsimony',
             -parameters => {
                 %raxml_parsimony_parameters,
-                'extra_raxml_args'          => '-T 32',
+                'raxml_number_of_cores'     => 32,
             },
             -hive_capacity  => $self->o('raxml_capacity'),
             -rc_name 		=> '32Gb_32c_job',
@@ -2425,7 +2434,7 @@ sub core_pipeline_analyses {
             -module     => 'Bio::EnsEMBL::Compara::RunnableDB::ProteinTrees::RAxML_parsimony',
             -parameters => {
                 %raxml_parsimony_parameters,
-                'extra_raxml_args'          => '-T 64',
+                'raxml_number_of_cores'     => 64,
                 'cmd_max_runtime'           => '518400',
                 'escape_branch'             => -1,
             },
@@ -2441,8 +2450,8 @@ sub core_pipeline_analyses {
             -module     => 'Bio::EnsEMBL::Compara::RunnableDB::ProteinTrees::RAxML_parsimony',
             -parameters => {
                 %raxml_parsimony_parameters,
+                'raxml_number_of_cores'     => 64,
                 'cmd_max_runtime'           => '518400',
-                'extra_raxml_args'          => '-T 64',
             },
             -hive_capacity  => $self->o('raxml_capacity'),
             -rc_name 		=> '32Gb_64c_job',
@@ -2630,7 +2639,7 @@ sub core_pipeline_analyses {
             -module     => 'Bio::EnsEMBL::Compara::RunnableDB::ProteinTrees::RAxML',
             -parameters => {
                 %raxml_parameters,
-                'extra_raxml_args'          => '-T 2',
+                'raxml_number_of_cores'     => 2,
             },
             -hive_capacity        => $self->o('raxml_capacity'),
             -rc_name    => '1Gb_job',
@@ -2672,7 +2681,7 @@ sub core_pipeline_analyses {
             -module     => 'Bio::EnsEMBL::Compara::RunnableDB::ProteinTrees::RAxML_update',
             -parameters => {
                 %raxml_update_parameters,
-                'extra_raxml_args'          => '-T 8',
+                'raxml_number_of_cores'     => 8,
             },
             -hive_capacity        => $self->o('raxml_update_capacity'),
             -rc_name 	=> '16Gb_8c_job',
@@ -2682,7 +2691,7 @@ sub core_pipeline_analyses {
             -module     => 'Bio::EnsEMBL::Compara::RunnableDB::ProteinTrees::RAxML_update',
             -parameters => {
                 %raxml_update_parameters,
-                'extra_raxml_args'          => '-T 16',
+                'raxml_number_of_cores'     => 16,
             },
             -hive_capacity        => $self->o('raxml_update_capacity'),
             -rc_name    => '16Gb_16c_job',
@@ -2692,7 +2701,7 @@ sub core_pipeline_analyses {
             -module     => 'Bio::EnsEMBL::Compara::RunnableDB::ProteinTrees::RAxML_update',
             -parameters => {
                 %raxml_update_parameters,
-                'extra_raxml_args'          => '-T 32',
+                'raxml_number_of_cores'     => 32,
             },
             -hive_capacity        => $self->o('raxml_update_capacity'),
             -rc_name    => '32Gb_32c_job',
@@ -2715,7 +2724,7 @@ sub core_pipeline_analyses {
             -module     => 'Bio::EnsEMBL::Compara::RunnableDB::ProteinTrees::RAxML',
             -parameters => {
                 %raxml_parameters,
-                'extra_raxml_args'  => '-T 8',
+                'raxml_number_of_cores'     => 8,
             },
             -hive_capacity        => $self->o('raxml_capacity'),
             -rc_name 		=> '16Gb_8c_job',
@@ -2729,7 +2738,7 @@ sub core_pipeline_analyses {
             -module     => 'Bio::EnsEMBL::Compara::RunnableDB::ProteinTrees::RAxML',
             -parameters => {
                 %raxml_parameters,
-                'extra_raxml_args'  => '-T 8',
+                'raxml_number_of_cores'     => 8,
             },
             -hive_capacity        => $self->o('raxml_capacity'),
             -rc_name 		=> '32Gb_8c_job',
@@ -2738,7 +2747,7 @@ sub core_pipeline_analyses {
             -module     => 'Bio::EnsEMBL::Compara::RunnableDB::ProteinTrees::RAxML',
             -parameters => {
                 %raxml_parameters,
-                'extra_raxml_args'  => '-T 16',
+                'raxml_number_of_cores'     => 16,
             },
             -hive_capacity        => $self->o('raxml_capacity'),
             -rc_name 		=> '16Gb_16c_job',
@@ -2752,7 +2761,7 @@ sub core_pipeline_analyses {
             -module     => 'Bio::EnsEMBL::Compara::RunnableDB::ProteinTrees::RAxML',
             -parameters => {
                 %raxml_parameters,
-                'extra_raxml_args'  => '-T 16',
+                'raxml_number_of_cores'     => 16,
             },
             -hive_capacity        => $self->o('raxml_capacity'),
             -rc_name 		=> '32Gb_16c_job',
@@ -2912,7 +2921,7 @@ sub core_pipeline_analyses {
             -module     => 'Bio::EnsEMBL::Compara::RunnableDB::ProteinTrees::RAxML_bl',
             -parameters => {
                 %raxml_bl_parameters,
-                'extra_raxml_args'          => '-T 8',
+                'raxml_number_of_cores'     => 8,
             },
             -hive_capacity        => $self->o('raxml_capacity'),
             -rc_name    => '16Gb_8c_job',
@@ -2926,7 +2935,7 @@ sub core_pipeline_analyses {
             -module     => 'Bio::EnsEMBL::Compara::RunnableDB::ProteinTrees::RAxML_bl',
             -parameters => {
                 %raxml_bl_parameters,
-                'extra_raxml_args'          => '-T 16',
+                'raxml_number_of_cores'     => 16,
             },
             -hive_capacity        => $self->o('raxml_capacity'),
             -rc_name    => '16Gb_16c_job',
@@ -2940,7 +2949,7 @@ sub core_pipeline_analyses {
             -module     => 'Bio::EnsEMBL::Compara::RunnableDB::ProteinTrees::RAxML_bl',
             -parameters => {
                 %raxml_bl_parameters,
-                'extra_raxml_args'          => '-T 32',
+                'raxml_number_of_cores'     => 32,
             },
             -hive_capacity        => $self->o('raxml_capacity'),
             -rc_name    => '32Gb_32c_job',
@@ -2954,7 +2963,7 @@ sub core_pipeline_analyses {
             -module     => 'Bio::EnsEMBL::Compara::RunnableDB::ProteinTrees::RAxML_bl',
             -parameters => {
                 %raxml_bl_parameters,
-                'extra_raxml_args'          => '-T 64',
+                'raxml_number_of_cores'     => 64,
             },
             -hive_capacity        => $self->o('raxml_capacity'),
             -rc_name    => '256Gb_64c_job',
