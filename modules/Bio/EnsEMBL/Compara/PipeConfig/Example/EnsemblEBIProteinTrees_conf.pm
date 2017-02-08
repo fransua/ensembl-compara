@@ -333,8 +333,6 @@ sub resource_classes {
 
          'msa'          => {'LSF' => '-C0 -M2000  -R"select[mem>2000]  rusage[mem=2000]"' },
          'msa_himem'    => {'LSF' => '-C0 -M8000  -R"select[mem>8000]  rusage[mem=8000]"' },
-
-         'urgent_hcluster'      => {'LSF' => '-C0 -M32000 -R"select[mem>32000] rusage[mem=32000]"' },
     };
 }
 
