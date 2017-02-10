@@ -87,7 +87,7 @@ sub default_options {
         'getPatterns_exe'           => $self->o('ensembl_cellar').'/raxml-get-patterns/1.0/bin/getPatterns',
 
         # Production database (for the biotypes)
-        'production_db_url'     => 'ensro@mysql-ens-sta-1:4519/ensembl_production',
+        'production_db_url'     => 'mysql://ensro@mysql-ens-sta-1:4519/ensembl_production',
 
     };
 }
